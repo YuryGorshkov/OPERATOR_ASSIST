@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Голосовые заметки</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">VN</div>
+        <div>
+          <h1>Голосовые заметки</h1>
+          <p>Записывайте мысли голосом</p>
+        </div>
+      </div>
+
+      <button id="new-note-btn" class="button button-primary button-full">+ Новая заметка</button>
+
+      <div class="notes-header">
+        <span>Сохраненные заметки</span>
+        <span id="note-count">0</span>
+      </div>
+
+      <div id="notes-list" class="notes-list"></div>
+    </aside>
+
+    <main class="workspace">
+      <section class="toolbar card">
+        <div class="toolbar-row">
+          <label class="field">
+            <span>Язык распознавания</span>
+            <select id="language-select">
+              <option value="ru-RU" selected>Русский</option>
+              <option value="en-US">English</option>
+              <option value="uk-UA">Украинский</option>
+            </select>
+          </label>
+
+          <div class="button-row">
+            <button id="mic-btn" class="button button-accent">Начать запись</button>
+            <button id="stop-btn" class="button button-secondary" disabled>Остановить</button>
+            <button id="copy-btn" class="button button-secondary">Копировать</button>
+            <button id="export-btn" class="button button-secondary">Экспорт TXT</button>
+            <button id="delete-btn" class="button button-danger">Удалить заметку</button>
+          </div>
+        </div>
+
+        <div class="status-bar">
+          <span id="status-pill" class="status-pill">Готово</span>
+          <span id="autosave-state" class="muted">Автосохранение включено</span>
+        </div>
+      </section>
+
+      <section class="editor-panel card">
+        <input id="title-input" class="title-input" type="text" maxlength="120" placeholder="Название заметки">
+        <textarea id="editor" placeholder="Текст заметки появится здесь..."></textarea>
+
+        <div class="transcript-box">
+          <div class="transcript-label">Промежуточное распознавание</div>
+          <div id="interim-text" class="interim-text">Пока пусто</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="note-item-template">
+    <button class="note-item">
+      <span class="note-item-title"></span>
+      <span class="note-item-date"></span>
+      <span class="note-item-preview"></span>
+    </button>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Речь собеседника</title>
+  <link rel="stylesheet" href="./speaker.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="eyebrow">Второе окно</div>
+      <h1>Речь собеседника</h1>
+      <p>
+        Это окно показывает текст из выбранного аудиоисточника.
+        Для гарнитуры переключите вход на <strong>Стерео микшер</strong>.
+      </p>
+    </header>
+
+    <section class="toolbar">
+      <label class="field">
+        <span>Язык распознавания</span>
+        <select id="language-select">
+          <option value="ru-RU" selected>Русский</option>
+          <option value="en-US">English</option>
+          <option value="uk-UA">Украинский</option>
+        </select>
+      </label>
+
+      <div class="buttons">
+        <button id="start-btn" class="button button-accent">Начать прослушивание</button>
+        <button id="stop-btn" class="button button-secondary" disabled>Остановить</button>
+        <button id="copy-btn" class="button button-secondary">Копировать</button>
+        <button id="clear-btn" class="button button-danger">Очистить</button>
+      </div>
+    </section>
+
+    <section class="status-card">
+      <span id="status-pill" class="status-pill">Готово</span>
+      <span id="hint" class="hint">Для гарнитуры сначала включите Стерео микшер.</span>
+    </section>
+
+    <section class="panels">
+      <article class="panel">
+        <div class="panel-title">Финальный текст</div>
+        <textarea id="final-text" placeholder="Здесь будет появляться текст собеседника..."></textarea>
+      </article>
+
+      <article class="panel panel-compact">
+        <div class="panel-title">Промежуточное распознавание</div>
+        <div id="interim-text" class="interim-box">Пока пусто</div>
+      </article>
+    </section>
+  </div>
+
+  <script src="./speaker.js"></script>
+</body>
+</html>

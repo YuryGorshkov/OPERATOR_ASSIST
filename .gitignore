@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local runtime data
+logs/
+transcripts/
+backups/
+operator_assist_settings.json
+
+# Packaging/build artifacts
+_packaging_test/
+build/
+dist/
+
+# Large local-only speech models
+models/
+
+# Windows noise
+Thumbs.db
+Desktop.ini
