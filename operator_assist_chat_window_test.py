@@ -23,7 +23,7 @@ WRAPPER_VERSION = "2026-07-14-chrome-bridge-test"
 CURRENT_DIR = Path(__file__).resolve().parent
 BASE_SCRIPT_CANDIDATES = [
     CURRENT_DIR / "operator_assist.py",
-    Path("D:/TEST_PRIL/operator_assist.py"),
+    Path("D:/OPERATOR_ASIST/operator_assist.py"),
 ]
 CHROME_BRIDGE_PORT = 9333
 CHROME_BRIDGE_BASE_URL = f"http://127.0.0.1:{CHROME_BRIDGE_PORT}"
@@ -112,7 +112,7 @@ class OperatorAssistChromeBridgeTestApp(_base_mod.OperatorAssistApp):
         tk.Label(
             bridge,
             text=(
-                "Первый запуск откроет отдельный Chrome-профиль внутри папки TEST_PRIL. "
+                "Первый запуск откроет отдельный Chrome-профиль внутри папки OPERATOR_ASIST. "
                 "Если потребуется, войди в ChatGPT один раз именно в этом окне."
             ),
             bg="white",
