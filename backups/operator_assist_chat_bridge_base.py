@@ -20,7 +20,7 @@ import sounddevice as sd
 from vosk import KaldiRecognizer, Model
 
 
-APP_TITLE = "OPERATOR_ASIST Operator Assist"
+APP_TITLE = "OPERATOR_ASSIST Operator Assist"
 APP_VERSION = "2026-07-09-chat1"
 BASE_DIR = Path(__file__).resolve().parent
 SETTINGS_PATH = BASE_DIR / "operator_assist_settings.json"
@@ -70,7 +70,7 @@ def resolve_logs_dir():
     temp_root = Path(os.environ.get("TEMP") or os.environ.get("TMP") or "C:\\tmp")
     candidates = [
         BASE_DIR / "logs",
-        temp_root / "OPERATOR_ASIST_logs",
+        temp_root / "OPERATOR_ASSIST_logs",
     ]
 
     for candidate in candidates:

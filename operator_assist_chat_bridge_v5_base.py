@@ -9,11 +9,11 @@ WRAPPER_VERSION = "2026-07-09-chat5"
 CURRENT_DIR = Path(__file__).resolve().parent
 BASE_SCRIPT_CANDIDATES = [
     CURRENT_DIR / "operator_assist_chat_bridge_v3_base.py",
-    Path("D:/OPERATOR_ASIST/operator_assist_chat_bridge_v3_base.py"),
+    Path("D:/OPERATOR_ASSIST/operator_assist_chat_bridge_v3_base.py"),
 ]
 VENDOR_CANDIDATES = [
     CURRENT_DIR / "vendor",
-    Path("D:/OPERATOR_ASIST/vendor"),
+    Path("D:/OPERATOR_ASSIST/vendor"),
 ]
 
 for vendor_dir in VENDOR_CANDIDATES:
