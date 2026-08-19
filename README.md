@@ -17,7 +17,7 @@ The project combines:
 - an experimental ChatGPT/Chrome bridge,
 - browser-based voice note and speaker-text prototypes for lighter use cases.
 
-Desktop UI is currently Russian-first. Repository documentation is English-first so the project is easier to review in a public portfolio.
+Desktop UI is currently Russian-first. Repository documentation is English-first so the project is easier to review in a public repository.
 
 ## Showcase
 

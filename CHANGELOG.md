@@ -4,7 +4,7 @@ All notable repository-facing changes are documented here.
 
 ## v0.1.0 - 2026-08-19
 
-Initial public portfolio release.
+Initial public release.
 
 Highlights:
 

@@ -63,7 +63,7 @@ That split is useful because not every scenario needs the same trade-offs.
 
 ## What This Demonstrates
 
-From a senior-level portfolio perspective, the project is valuable because it shows:
+From an engineering review perspective, the project is valuable because it shows:
 
 - pragmatic architecture under real constraints,
 - handling of ugly platform-specific audio problems,

@@ -36,7 +36,7 @@ Expected local paths:
 - `models/vosk-model-ru-0.22`
 - `models/vosk-model-small-ru-0.22`
 
-For a portfolio repository, excluding these models is the correct trade-off:
+For a public repository, excluding these models is the correct trade-off:
 
 - the repo stays lightweight,
 - the source remains reviewable,
@@ -152,7 +152,7 @@ That keeps the packaged app aligned with the existing product behavior:
 
 ## Recommended Demo Setup
 
-For interview or portfolio demos:
+For live demos or technical reviews:
 
 1. prepare one working local Vosk model,
 2. verify the microphone source,
