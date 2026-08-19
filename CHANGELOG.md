@@ -4,7 +4,11 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
-Repository and product-polish work prepared after `v0.1.0`.
+Repository and product-polish work prepared after `v0.1.1`.
+
+## v0.1.1 - 2026-08-19
+
+Repository, packaging, and release automation update.
 
 Highlights:
 
