@@ -9,7 +9,7 @@ on:
 
 jobs:
   validate:
-    runs-on: windows-latest
+    runs-on: windows-2025
     env:
       PYTHONPATH: ${{ github.workspace }}
       PYTHONPYCACHEPREFIX: ${{ runner.temp }}\operator_assist_pyc

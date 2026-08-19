@@ -1,10 +1,27 @@
-#define MyAppName "OPERATOR_ASSIST"
-#define MyAppVersion "0.1.0"
-#define MyAppPublisher "Yury Gorshkov"
-#define MyAppURL "https://github.com/YuryGorshkov/OPERATOR_ASSIST"
-#define MyAppExeName "OPERATOR_ASSIST.exe"
-#define MyPortableRoot "..\..\release\portable\OPERATOR_ASSIST"
-#define MyOutputRoot "..\..\release\installer"
+#ifndef MyAppName
+  #define MyAppName "OPERATOR_ASSIST"
+#endif
+#ifndef MyAppVersion
+  #define MyAppVersion "0.1.0"
+#endif
+#ifndef MyAppPublisher
+  #define MyAppPublisher "Yury Gorshkov"
+#endif
+#ifndef MyAppURL
+  #define MyAppURL "https://github.com/YuryGorshkov/OPERATOR_ASSIST"
+#endif
+#ifndef MyAppExeName
+  #define MyAppExeName "OPERATOR_ASSIST.exe"
+#endif
+#ifndef MyPortableRoot
+  #define MyPortableRoot "..\..\release\portable\OPERATOR_ASSIST"
+#endif
+#ifndef MyOutputRoot
+  #define MyOutputRoot "..\..\release\installer"
+#endif
+#ifndef MyOutputBaseFilename
+  #define MyOutputBaseFilename "OPERATOR_ASSIST-Setup"
+#endif
 
 [Setup]
 AppId={{D5B8745B-D081-4B47-A1C8-237C462D935F}
@@ -18,7 +35,7 @@ DefaultDirName={autopf}\OPERATOR_ASSIST
 DefaultGroupName=OPERATOR_ASSIST
 DisableProgramGroupPage=yes
 OutputDir={#MyOutputRoot}
-OutputBaseFilename=OPERATOR_ASSIST-Setup
+OutputBaseFilename={#MyOutputBaseFilename}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

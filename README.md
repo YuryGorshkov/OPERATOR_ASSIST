@@ -37,7 +37,7 @@ Desktop UI is currently Russian-first. Repository documentation is English-first
 - Desktop product thinking instead of script-only automation.
 - Pragmatic Windows audio engineering with multiple fallback paths.
 - Incremental architecture cleanup from legacy wrappers toward shared runtime services.
-- Public-repo hardening: packaging pipeline, release artifacts, tests, and documentation.
+- Public-repo hardening: CI, release automation, packaging assets, tests, and documentation.
 - Honest scope control: stable workflow separated from experimental AI handoff features.
 
 ## Core Capabilities
@@ -88,7 +88,8 @@ More detail: [docs/architecture.md](docs/architecture.md)
 OPERATOR_ASSIST/
 ├─ .github/
 │  └─ workflows/
-│     └─ ci.yml                     GitHub Actions validation for syntax and lightweight tests
+│     ├─ ci.yml                     GitHub Actions validation for syntax and lightweight tests
+│     └─ release.yml                Tagged Windows release build and publication
 ├─ app/                               Browser prototypes (voice notes + speaker window)
 ├─ assets/                            App icon and logo assets used by runtime and packaging
 ├─ operator_assist_runtime/
@@ -146,6 +147,18 @@ The canonical base runtime now lives in `operator_assist_runtime/base_runtime.py
 - Local JSON/text persistence for settings, prompt templates, logs, and transcripts
 
 ## Quick Start
+
+### Install from GitHub release
+
+If you want to try the packaged app on another Windows machine instead of running from source:
+
+1. Open the repository [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
+2. Download either `OPERATOR_ASSIST-Setup-<version>.exe` or `OPERATOR_ASSIST-portable-<version>.zip`.
+3. Install or extract the app.
+4. Place one supported Vosk model into the local `models/` folder before first launch.
+5. Start the app and use the readiness block to confirm both audio sources.
+
+More detail: [Install from release](docs/install-from-release.md)
 
 ### 1. Install Python
 
@@ -248,6 +261,11 @@ Typical build outputs:
 - `release/portable/OPERATOR_ASSIST`
 - `release/portable/OPERATOR_ASSIST-portable.zip`
 - `release/installer/OPERATOR_ASSIST-Setup.exe`
+- `release/publish/OPERATOR_ASSIST-portable-<version>.zip`
+- `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
+- `release/publish/SHA256SUMS.txt`
+
+Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v0.1.1` builds the Windows artifacts and publishes them to the matching GitHub Release.
 
 ## Dependency Strategy
 
@@ -295,12 +313,13 @@ The repository does not force one interface to solve every scenario. It includes
 - Speech models are still external runtime assets, so first launch is not fully zero-click.
 - The Chrome bridge is experimental and should be treated as an optional workflow, not the default.
 - Quality checks exist, but the test layer is still minimal and does not yet cover real audio fixtures.
+- Windows distribution is still unsigned, so SmartScreen-style trust warnings are still possible on fresh machines.
 - The repository is optimized for practical usage and iteration speed, not for library-style packaging purity.
 
 ## What I Would Do Next For Production
 
 - Add a guided model bootstrap flow so the operator can prepare `models/` with less manual work.
-- Add code signing and release automation for cleaner Windows distribution.
+- Add code signing and release attestations for cleaner Windows distribution.
 - Add automated audio-fixture regression tests for transcription and post-processing.
 - Introduce VAD or diarization to reduce noise and cross-talk.
 - Move prompt engineering into configurable profiles instead of hard-coded workflow assumptions.
@@ -313,6 +332,7 @@ The repository does not force one interface to solve every scenario. It includes
 - [Case study](docs/case-study.md)
 - [Deployment and packaging notes](docs/deployment.md)
 - [First launch guide](docs/first-launch.md)
+- [Install from packaged release](docs/install-from-release.md)
 - [Known issues](docs/known-issues.md)
 
 ## Project Positioning

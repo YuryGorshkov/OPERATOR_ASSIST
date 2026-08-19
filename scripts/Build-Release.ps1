@@ -15,6 +15,7 @@ $pyInstallerDistRoot = Join-Path $releaseRoot "_pyinstaller_dist"
 $portableRoot = Join-Path $releaseRoot "portable\OPERATOR_ASSIST"
 $portableZipPath = Join-Path $releaseRoot "portable\OPERATOR_ASSIST-portable.zip"
 $installerRoot = Join-Path $releaseRoot "installer"
+$publishRoot = Join-Path $releaseRoot "publish"
 $specPath = Join-Path $projectRoot "packaging\pyinstaller\operator_assist.spec"
 $innoScriptPath = Join-Path $projectRoot "packaging\inno\OperatorAssist.iss"
 
@@ -60,6 +61,16 @@ function Find-PythonConsole {
     }
 
     return $null
+}
+
+function Get-ProjectVersion {
+    $pyprojectPath = Join-Path $projectRoot "pyproject.toml"
+    $match = Select-String -Path $pyprojectPath -Pattern '^\s*version\s*=\s*"([^"]+)"' | Select-Object -First 1
+    if ($null -eq $match) {
+        throw "Unable to resolve project version from $pyprojectPath"
+    }
+
+    return $match.Matches[0].Groups[1].Value
 }
 
 function Invoke-Python {
@@ -139,14 +150,43 @@ function Copy-ProjectFile {
     Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
 }
 
+function Write-Sha256Manifest {
+    param(
+        [string[]]$FilePaths,
+        [string]$OutputPath
+    )
+
+    $lines = @()
+    foreach ($filePath in $FilePaths) {
+        if (-not (Test-Path -LiteralPath $filePath)) {
+            continue
+        }
+
+        $hash = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $fileName = Split-Path -Leaf $filePath
+        $lines += "$hash *$fileName"
+    }
+
+    if ($lines.Count -eq 0) {
+        return
+    }
+
+    Set-Content -LiteralPath $OutputPath -Value $lines -Encoding ASCII
+}
+
 $python = Find-PythonConsole
 if ($null -eq $python) {
     throw "No usable Python runtime was found."
 }
+$projectVersion = Get-ProjectVersion
+$versionedPortableZipPath = Join-Path $publishRoot "OPERATOR_ASSIST-portable-$projectVersion.zip"
+$versionedInstallerPath = Join-Path $publishRoot "OPERATOR_ASSIST-Setup-$projectVersion.exe"
+$checksumsPath = Join-Path $publishRoot "SHA256SUMS.txt"
 
 Write-Step "Checking build prerequisites"
 $pythonVersion = & $python.FilePath @($python.ArgumentPrefix + @("-c", "import sys; print(sys.version.split()[0])"))
 Write-Host "Python: $pythonVersion via $($python.FilePath)"
+Write-Host "Project version: $projectVersion"
 Invoke-PythonSnippet -PythonCommand $python -Code "import PyInstaller; print(PyInstaller.__version__)"
 
 if (-not $SkipTests) {
@@ -165,10 +205,12 @@ if (-not $NoClean) {
     Remove-TreeSafe -TargetPath $pyInstallerDistRoot
     Remove-TreeSafe -TargetPath (Join-Path $releaseRoot "portable")
     Remove-TreeSafe -TargetPath $installerRoot
+    Remove-TreeSafe -TargetPath $publishRoot
 }
 
 Ensure-Directory -TargetPath $releaseRoot
 Ensure-Directory -TargetPath (Join-Path $releaseRoot "portable")
+Ensure-Directory -TargetPath $publishRoot
 
 Write-Step "Building PyInstaller bundle"
 Push-Location $projectRoot
@@ -222,6 +264,7 @@ try {
 
 $buildInfo = @(
     "OPERATOR_ASSIST release bundle",
+    "Version: $projectVersion",
     "Built at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
     "Commit: $commitHash",
     "Python: $pythonVersion",
@@ -232,12 +275,16 @@ $buildInfo = @(
 )
 Set-Content -LiteralPath (Join-Path $portableRoot "BUILD_INFO.txt") -Value $buildInfo -Encoding UTF8
 
+$publishedAssets = @()
+
 if (-not $SkipZip) {
     Write-Step "Creating portable zip archive"
     if (Test-Path -LiteralPath $portableZipPath) {
         Remove-Item -LiteralPath $portableZipPath -Force
     }
     Compress-Archive -Path (Join-Path $portableRoot "*") -DestinationPath $portableZipPath -Force
+    Copy-Item -LiteralPath $portableZipPath -Destination $versionedPortableZipPath -Force
+    $publishedAssets += $versionedPortableZipPath
 }
 
 if (-not $SkipInstaller) {
@@ -247,12 +294,24 @@ if (-not $SkipInstaller) {
         Write-Warning "Inno Setup 6 compiler was not found. Portable build is ready, installer step skipped."
     } else {
         Ensure-Directory -TargetPath $installerRoot
-        & $innoCompiler $innoScriptPath
+        & $innoCompiler "/DMyAppVersion=$projectVersion" "/DMyOutputBaseFilename=OPERATOR_ASSIST-Setup-$projectVersion" $innoScriptPath
         if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup compiler failed with exit code $LASTEXITCODE"
         }
+
+        $builtInstallerPath = Join-Path $installerRoot "OPERATOR_ASSIST-Setup-$projectVersion.exe"
+        if (-not (Test-Path -LiteralPath $builtInstallerPath)) {
+            throw "Inno Setup did not produce the expected installer at $builtInstallerPath"
+        }
+
+        $stableInstallerPath = Join-Path $installerRoot "OPERATOR_ASSIST-Setup.exe"
+        Copy-Item -LiteralPath $builtInstallerPath -Destination $stableInstallerPath -Force
+        Copy-Item -LiteralPath $builtInstallerPath -Destination $versionedInstallerPath -Force
+        $publishedAssets += $versionedInstallerPath
     }
 }
+
+Write-Sha256Manifest -FilePaths $publishedAssets -OutputPath $checksumsPath
 
 Write-Step "Release build completed"
 Write-Host "Portable bundle: $portableRoot"
@@ -261,4 +320,7 @@ if (-not $SkipZip) {
 }
 if (-not $SkipInstaller) {
     Write-Host "Installer dir:   $installerRoot"
+}
+if (Test-Path -LiteralPath $publishRoot) {
+    Write-Host "Publish assets:  $publishRoot"
 }

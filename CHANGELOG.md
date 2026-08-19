@@ -8,6 +8,8 @@ Repository and product-polish work prepared after `v0.1.0`.
 
 Highlights:
 
+- added a pinned Windows release workflow that builds portable and installer assets on GitHub
+- added versioned publish-ready artifacts and SHA256 manifests to the local release pipeline
 - added a first-launch readiness panel with model, device, and settings checks
 - replaced aggressive startup error popups with a clearer in-app readiness flow
 - added quick actions for opening the `models/` folder and the application root

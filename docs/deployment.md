@@ -134,6 +134,9 @@ Typical successful outputs:
 - `release/portable/OPERATOR_ASSIST`
 - `release/portable/OPERATOR_ASSIST-portable.zip`
 - `release/installer/OPERATOR_ASSIST-Setup.exe`
+- `release/publish/OPERATOR_ASSIST-portable-<version>.zip`
+- `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
+- `release/publish/SHA256SUMS.txt`
 
 Useful switches:
 
@@ -141,6 +144,32 @@ Useful switches:
 - `-SkipZip`
 - `-SkipInstaller`
 - `-NoClean`
+
+The local build keeps stable file names for convenience and also prepares versioned publish-ready artifacts under `release/publish/` for GitHub Releases.
+
+## GitHub Release Automation
+
+The repository now includes a dedicated GitHub Actions release workflow:
+
+- `.github/workflows/release.yml`
+
+What it does on a tagged push like `v0.1.1`:
+
+1. pins the runner to `windows-2025`,
+2. installs Python build dependencies,
+3. installs Inno Setup,
+4. validates that the pushed tag matches `pyproject.toml`,
+5. runs `scripts/Build-Release.ps1`,
+6. uploads versioned artifacts and checksums,
+7. publishes or updates the matching GitHub Release.
+
+Recommended release procedure:
+
+1. update `pyproject.toml` version,
+2. update `CHANGELOG.md`,
+3. commit the release preparation,
+4. create and push a matching tag like `v0.1.1`,
+5. let GitHub Actions build and attach the Windows assets automatically.
 
 ## Frozen Runtime Behavior
 
@@ -168,6 +197,7 @@ To reduce friction, the desktop runtime now includes:
 - a re-check action that validates model presence and source selection again.
 
 More detail: [First launch guide](first-launch.md)
+Packaged-app walkthrough: [Install from release](install-from-release.md)
 
 ## Recommended Demo Setup
 
