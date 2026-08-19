@@ -44,6 +44,7 @@ Desktop UI is currently Russian-first. Repository documentation is English-first
 - Simultaneous transcription of microphone audio and speaker/system audio into separate panels.
 - Offline Russian speech recognition using Vosk models.
 - Automatic detection of WASAPI loopback sources, with fallback to classic recording inputs such as Stereo Mix.
+- First-launch readiness checks for model presence, audio sources, and saved settings.
 - Technical-term normalization layer with switchable IT terminology mode.
 - Transcript export, clipboard copy, and local logging.
 - Prompt assembly workflow for AI assistance based on the caller stream.
@@ -85,6 +86,7 @@ More detail: [docs/architecture.md](docs/architecture.md)
 ```text
 OPERATOR_ASSIST/
 ├─ app/                               Browser prototypes (voice notes + speaker window)
+├─ assets/                            App icon and logo assets used by runtime and packaging
 ├─ operator_assist_runtime/
 │  ├─ __init__.py
 │  ├─ base_runtime.py
@@ -97,6 +99,8 @@ OPERATOR_ASSIST/
 │  ├─ architecture.md
 │  ├─ case-study.md
 │  ├─ deployment.md
+│  ├─ first-launch.md
+│  ├─ known-issues.md
 │  └─ images/
 ├─ packaging/
 │  ├─ inno/
@@ -106,6 +110,7 @@ OPERATOR_ASSIST/
 ├─ tests/
 │  ├─ test_repository_contract.py
 │  ├─ test_runtime_paths.py
+│  ├─ test_startup_summary.py
 │  └─ test_technical_terms_manager.py
 ├─ scripts/
 │  ├─ Build-Release.ps1
@@ -171,7 +176,20 @@ Main Python entry point:
 python operator_assist.py
 ```
 
-### 5. Launch the browser prototypes
+### 5. First launch behavior
+
+If the app cannot find a speech model yet, it now shows a readiness block instead of relying only on immediate modal errors.
+
+Use the in-app buttons to:
+
+- open the local `models/` folder,
+- place a supported Russian Vosk model there,
+- re-run the startup checks,
+- confirm microphone and caller/system-audio routing before pressing `Старт`.
+
+More detail: [First launch guide](docs/first-launch.md)
+
+### 6. Launch the browser prototypes
 
 Serve the local `app/` directory with the included PowerShell server:
 
@@ -184,13 +202,13 @@ Then open:
 - `http://127.0.0.1:8765/`
 - `http://127.0.0.1:8765/speaker.html`
 
-### 6. Run a preflight check
+### 7. Run a preflight check
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-### 7. Run repository checks
+### 8. Run repository checks
 
 ```bash
 python -m unittest discover -s tests
@@ -219,6 +237,12 @@ By default this:
 - assembles a portable release under `release/portable/OPERATOR_ASSIST`,
 - creates a portable `.zip`,
 - attempts an Inno Setup installer build if `ISCC.exe` is installed locally.
+
+Typical build outputs:
+
+- `release/portable/OPERATOR_ASSIST`
+- `release/portable/OPERATOR_ASSIST-portable.zip`
+- `release/installer/OPERATOR_ASSIST-Setup.exe`
 
 ## Dependency Strategy
 
@@ -263,14 +287,15 @@ The repository does not force one interface to solve every scenario. It includes
 ## Current Constraints
 
 - Windows-first implementation for the primary desktop mode.
-- There is still no fully packaged installer with embedded runtime.
+- Speech models are still external runtime assets, so first launch is not fully zero-click.
 - The Chrome bridge is experimental and should be treated as an optional workflow, not the default.
 - Quality checks exist, but the test layer is still minimal and does not yet cover real audio fixtures.
 - The repository is optimized for practical usage and iteration speed, not for library-style packaging purity.
 
 ## What I Would Do Next For Production
 
-- Ship a packaged installer or embedded runtime for zero-setup distribution.
+- Add a guided model bootstrap flow so the operator can prepare `models/` with less manual work.
+- Add code signing and release automation for cleaner Windows distribution.
 - Add automated audio-fixture regression tests for transcription and post-processing.
 - Introduce VAD or diarization to reduce noise and cross-talk.
 - Move prompt engineering into configurable profiles instead of hard-coded workflow assumptions.
@@ -282,8 +307,10 @@ The repository does not force one interface to solve every scenario. It includes
 - [Architecture notes](docs/architecture.md)
 - [Case study](docs/case-study.md)
 - [Deployment and packaging notes](docs/deployment.md)
+- [First launch guide](docs/first-launch.md)
+- [Known issues](docs/known-issues.md)
 
-## Portfolio Framing
+## Project Positioning
 
 This project is strongest when presented as:
 

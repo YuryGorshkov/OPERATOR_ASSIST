@@ -73,10 +73,10 @@ From an engineering review perspective, the project is valuable because it shows
 
 ## What Is Still Imperfect
 
-- Packaging is not yet fully polished into a clean installer story.
+- Packaging is now good enough for portable and installer-style distribution, but still not a zero-friction signed Windows release.
 - The desktop runtime is still Windows-first.
 - The Chrome bridge remains experimental.
-- There is no formal automated test suite yet.
+- Automated checks exist, but they still focus on deterministic logic and repository contracts rather than real audio fixtures.
 - Accuracy improvements are still mostly dictionary- and workflow-driven rather than model-driven.
 
 ## Why It Is Still Worth Showing
@@ -89,3 +89,5 @@ The interesting part is:
 - choosing the least fragile path under OS constraints,
 - keeping a working system alive while extending it,
 - and being honest about where the engineering is strong versus where it is still evolving.
+
+That honesty matters: as of August 19, 2026, the project already demonstrates useful packaging, startup readiness improvements, and repository-level hardening, while still leaving obvious room for production-grade audio regression testing and distribution polish.

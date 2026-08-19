@@ -67,6 +67,11 @@ def rebind_environment():
     runtime.PROMPT_TEMPLATE_PATH = CURRENT_DIR / "chatgpt_prompt_template.txt"
     runtime.BRIDGE_SCRIPT_PATH = CURRENT_DIR / "scripts" / "paste_to_chat_window.vbs"
     runtime.TECHNICAL_TERMS_PATH = CURRENT_DIR / "technical_terms.json"
+    runtime.ASSETS_DIR = CURRENT_DIR / "assets"
+    runtime.APP_LOGO_PATH = runtime.ASSETS_DIR / "logo-enot.png"
+    runtime.APP_LOGO_SMALL_PATH = runtime.ASSETS_DIR / "logo-enot-72.png"
+    runtime.APP_LOGO_LARGE_PATH = runtime.ASSETS_DIR / "logo-enot-128.png"
+    runtime.APP_ICON_PATH = runtime.ASSETS_DIR / "operator_assist.ico"
     runtime.MODEL_CANDIDATES = [
         CURRENT_DIR / "models" / "vosk-model-ru-0.42",
         CURRENT_DIR / "models" / "vosk-model-ru-0.22",
@@ -214,6 +219,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
 
         if not self.stop_event.is_set() and chunk:
             self.chunk_count += 1
+            self._emit_level(chunk)
             try:
                 self.audio_queue.put_nowait(chunk)
             except runtime.queue.Full:
@@ -354,24 +360,11 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         outer = runtime.tk.Frame(wrapper, bg="#f3f6f9")
         outer.pack(fill="both", expand=True, padx=18, pady=18)
 
-        header = runtime.tk.Frame(outer, bg="#f3f6f9")
-        header.pack(fill="x", pady=(0, 12))
-
-        runtime.tk.Label(
-            header,
-            text="Operator Assist",
-            font=("Segoe UI", 24, "bold"),
-            bg="#f3f6f9",
-            fg="#17324d",
-        ).pack(anchor="w")
-
-        runtime.tk.Label(
-            header,
-            text="Одновременное распознавание вашего микрофона и системного звука через WASAPI loopback или запасной вход",
-            font=("Segoe UI", 11),
-            bg="#f3f6f9",
-            fg="#5f7184",
-        ).pack(anchor="w", pady=(2, 0))
+        self._build_branded_header(
+            outer,
+            subtitle_text="Одновременное распознавание вашего микрофона и системного звука через WASAPI loopback или запасной вход",
+        )
+        self._build_startup_readiness(outer)
 
         controls = runtime.tk.Frame(outer, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         controls.pack(fill="x", pady=(0, 12))
@@ -384,6 +377,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.mic_combo.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.speaker_combo = runtime.ttk.Combobox(controls, textvariable=self.speaker_device_var, state="readonly", width=48)
         self.speaker_combo.grid(row=1, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self._bind_device_selection_diagnostics()
 
         buttons = runtime.tk.Frame(controls, bg="white")
         buttons.grid(row=1, column=2, padx=(16, 0), sticky="e")
@@ -396,6 +390,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=1)
+
+        self._build_audio_diagnostics(outer)
 
         action_bar = runtime.tk.Frame(outer, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         action_bar.pack(fill="x", pady=(0, 12))
@@ -552,16 +548,23 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         if not mic_labels:
             runtime.LOGGER.warning("No microphone devices available")
-            return
-
-        if not speaker_labels:
-            runtime.LOGGER.warning("No speaker capture sources available")
+            self.mic_device_var.set("")
+            self.speaker_device_var.set("")
+            self._refresh_audio_diagnostics()
             return
 
         saved_mic = self.settings.get("mic_device")
         saved_speaker = self.settings.get("speaker_device")
 
         mic_default = saved_mic if saved_mic in mic_labels else self._find_mic_label(("микроф", "microphone", "mic input"))
+
+        if not speaker_labels:
+            runtime.LOGGER.warning("No speaker capture sources available")
+            self.mic_device_var.set(mic_default or mic_labels[0])
+            self.speaker_device_var.set("")
+            self._refresh_audio_diagnostics()
+            return
+
         speaker_default = saved_speaker if saved_speaker in speaker_labels else self._find_speaker_label()
 
         self.mic_device_var.set(mic_default or mic_labels[0])
@@ -572,6 +575,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
         )
+        self._refresh_audio_diagnostics()
 
     def _find_mic_label(self, keywords):
         runtime = _base_mod._base
@@ -656,6 +660,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.hint_var.set(
             f"Активная модель: {self._current_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
         )
+        self.channel_overlap_warning_active = False
+        self.recent_mic_finals.clear()
+        self.recent_speaker_finals.clear()
+        self._refresh_audio_diagnostics()
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self._save_settings()
@@ -665,6 +673,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         runtime.LOGGER.info("Refreshing device list")
         self.devices = self._load_input_devices()
         self._apply_default_devices()
+        self.channel_overlap_warning_active = False
+        self._refresh_audio_diagnostics()
 
         if any(source["kind"] == "loopback" for source in self.speaker_sources):
             self.hint_var.set("Список устройств обновлен. Для собеседника доступен WASAPI loopback.")

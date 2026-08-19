@@ -32,6 +32,13 @@ This module contains the core `TranscriptionWorker` and `OperatorAssistApp` abst
 
 It now delegates smaller cross-cutting concerns to shared helpers under `operator_assist_runtime/`, so the recognition loop and UI orchestration are easier to review independently from text normalization details.
 
+It also now contains the startup-readiness flow that checks:
+
+- model availability,
+- source selection,
+- saved settings presence,
+- basic start conditions before enabling the main session button.
+
 For compatibility, the old path under `backups/operator_assist_chat_bridge_base.py` is retained as a shim while the repository transitions to the cleaner package layout.
 
 ### 2. Loopback-enabled Windows runtime
@@ -157,6 +164,7 @@ Local runtime artifacts include:
 - `operator_assist_settings.json`
 - `technical_terms.json`
 - `chatgpt_prompt_template.txt`
+- `assets/`
 - `logs/`
 - `transcripts/`
 - `models/`
@@ -173,6 +181,10 @@ Because the core value of this project is workflow utility, audio routing, and t
 
 Because Windows loopback support is one of the most fragile parts of the setup. Vendoring critical pieces improves practical portability at the cost of some repository cleanliness.
 
+### Why keep the model external?
+
+Because Vosk models are large runtime assets, change independently from the source tree, and would bloat the repository heavily. The current design chooses a smaller and more reviewable repo over a zero-download first run.
+
 ### Why keep experiments in the same repository?
 
 Because the experimental flows directly exercise the same transcription core and workflow assumptions. Splitting them too early would make iteration slower and hide the product evolution story.
@@ -181,8 +193,8 @@ Because the experimental flows directly exercise the same transcription core and
 
 If this were being prepared for broader deployment, the most valuable next moves would be:
 
-1. packaged installer with embedded runtime,
-2. automatic dependency or bootstrap script,
+1. guided model bootstrap or download assistant,
+2. code signing and cleaner Windows trust story,
 3. regression tests on saved audio fixtures,
 4. cleaner module boundaries,
 5. explicit observability around device selection, latency, and recognition quality,

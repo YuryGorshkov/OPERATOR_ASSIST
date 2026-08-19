@@ -6,6 +6,7 @@ import unittest
 from operator_assist_runtime.technical_terms import TechnicalTermsManager
 from operator_assist_runtime.text_utils import (
     are_exact_duplicates,
+    are_similar_duplicates,
     normalize_name,
     short_text,
 )
@@ -115,6 +116,17 @@ class TextUtilsTests(unittest.TestCase):
     def test_are_exact_duplicates_respects_min_chars(self):
         self.assertTrue(are_exact_duplicates("Laravel framework", "laravel   framework"))
         self.assertFalse(are_exact_duplicates("php", "PHP"))
+
+    def test_are_similar_duplicates_detects_near_match(self):
+        self.assertTrue(
+            are_similar_duplicates(
+                "настройка laravel queue worker в production",
+                "настройка laravel queue воркер в продакшене",
+            )
+        )
+
+    def test_are_similar_duplicates_ignores_short_terms(self):
+        self.assertFalse(are_similar_duplicates("марвел", "ларавел"))
 
 
 if __name__ == "__main__":

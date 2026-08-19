@@ -61,6 +61,31 @@ class RepositoryContractTests(unittest.TestCase):
         missing = [str(path) for path in expected_files if not path.exists()]
         self.assertEqual([], missing, f"Missing packaging assets: {missing}")
 
+    def test_branding_assets_exist(self):
+        expected_files = [
+            PROJECT_ROOT / "assets" / "logo-enot.png",
+            PROJECT_ROOT / "assets" / "logo-enot-72.png",
+            PROJECT_ROOT / "assets" / "logo-enot-96.png",
+            PROJECT_ROOT / "assets" / "logo-enot-128.png",
+            PROJECT_ROOT / "assets" / "logo-enot-256.png",
+            PROJECT_ROOT / "assets" / "operator_assist.ico",
+        ]
+
+        missing = [str(path) for path in expected_files if not path.exists()]
+        self.assertEqual([], missing, f"Missing branding assets: {missing}")
+
+    def test_key_docs_exist(self):
+        expected_files = [
+            PROJECT_ROOT / "docs" / "architecture.md",
+            PROJECT_ROOT / "docs" / "case-study.md",
+            PROJECT_ROOT / "docs" / "deployment.md",
+            PROJECT_ROOT / "docs" / "first-launch.md",
+            PROJECT_ROOT / "docs" / "known-issues.md",
+        ]
+
+        missing = [str(path) for path in expected_files if not path.exists()]
+        self.assertEqual([], missing, f"Missing key documentation files: {missing}")
+
 
 if __name__ == "__main__":
     unittest.main()

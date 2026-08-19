@@ -13,6 +13,12 @@ datas = [
     (str(project_root / "technical_terms.json"), "."),
     (str(project_root / "chatgpt_prompt_template.txt"), "."),
     (str(project_root / "scripts" / "paste_to_chat_window.vbs"), "scripts"),
+    (str(project_root / "assets" / "logo-enot.png"), "assets"),
+    (str(project_root / "assets" / "logo-enot-72.png"), "assets"),
+    (str(project_root / "assets" / "logo-enot-96.png"), "assets"),
+    (str(project_root / "assets" / "logo-enot-128.png"), "assets"),
+    (str(project_root / "assets" / "logo-enot-256.png"), "assets"),
+    (str(project_root / "assets" / "operator_assist.ico"), "assets"),
 ]
 datas += collect_data_files("vosk")
 datas += collect_data_files("soundcard")
@@ -66,6 +72,7 @@ exe = EXE(
     upx=False,
     console=False,
     disable_windowed_traceback=False,
+    icon=str(project_root / "assets" / "operator_assist.ico"),
 )
 
 coll = COLLECT(

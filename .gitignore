@@ -1,6 +1,8 @@
 # Python cache
 __pycache__/
 *.py[cod]
+.venv/
+venv/
 
 # Local runtime data
 logs/
@@ -15,6 +17,10 @@ _packaging_test/
 build/
 dist/
 release/
+*.log
+*.tmp
+*.bak
+*.orig
 
 # Large local-only speech models
 models/
@@ -22,3 +28,5 @@ models/
 # Windows noise
 Thumbs.db
 Desktop.ini
+.vscode/
+.idea/

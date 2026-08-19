@@ -45,6 +45,11 @@ def rebind_base_environment():
     _base.PROMPT_TEMPLATE_PATH = CURRENT_DIR / "chatgpt_prompt_template.txt"
     _base.BRIDGE_SCRIPT_PATH = CURRENT_DIR / "scripts" / "paste_to_chat_window.vbs"
     _base.TECHNICAL_TERMS_PATH = CURRENT_DIR / "technical_terms.json"
+    _base.ASSETS_DIR = CURRENT_DIR / "assets"
+    _base.APP_LOGO_PATH = _base.ASSETS_DIR / "logo-enot.png"
+    _base.APP_LOGO_SMALL_PATH = _base.ASSETS_DIR / "logo-enot-72.png"
+    _base.APP_LOGO_LARGE_PATH = _base.ASSETS_DIR / "logo-enot-128.png"
+    _base.APP_ICON_PATH = _base.ASSETS_DIR / "operator_assist.ico"
     _base.MODEL_CANDIDATES = [
         CURRENT_DIR / "models" / "vosk-model-ru-0.42",
         CURRENT_DIR / "models" / "vosk-model-ru-0.22",
@@ -266,8 +271,10 @@ class OperatorAssistApp(_base.OperatorAssistApp):
             "chrome_auto_enter": bool(self.auto_enter_var.get()),
             "operator_prompt": self._operator_prompt_value(),
         }
+        self.settings = dict(payload)
         _base.SETTINGS_PATH.write_text(_base.json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         _base.LOGGER.info("Saved settings: %s", _base.json.dumps(payload, ensure_ascii=False))
+        self._refresh_startup_readiness()
 
     def clear_operator_prompt(self):
         self.operator_prompt_text.delete("1.0", "end")

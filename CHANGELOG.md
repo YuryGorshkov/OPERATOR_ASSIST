@@ -2,6 +2,18 @@
 
 All notable repository-facing changes are documented here.
 
+## Unreleased
+
+Repository and product-polish work prepared after `v0.1.0`.
+
+Highlights:
+
+- added a first-launch readiness panel with model, device, and settings checks
+- replaced aggressive startup error popups with a clearer in-app readiness flow
+- added quick actions for opening the `models/` folder and the application root
+- integrated branded application assets into the runtime and packaging pipeline
+- added startup-readiness unit coverage for repository-safe regression checks
+
 ## v0.1.0 - 2026-08-19
 
 Initial public release.

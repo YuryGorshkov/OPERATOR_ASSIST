@@ -27,6 +27,7 @@ from operator_assist_runtime.technical_terms import (
 from operator_assist_runtime.runtime_paths import application_root
 from operator_assist_runtime.text_utils import (
     are_exact_duplicates as shared_are_exact_duplicates,
+    are_similar_duplicates as shared_are_similar_duplicates,
     normalize_name as shared_normalize_name,
     short_text as shared_short_text,
 )
@@ -40,11 +41,20 @@ TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 PROMPT_TEMPLATE_PATH = BASE_DIR / "chatgpt_prompt_template.txt"
 BRIDGE_SCRIPT_PATH = BASE_DIR / "scripts" / "paste_to_chat_window.vbs"
 TECHNICAL_TERMS_PATH = BASE_DIR / "technical_terms.json"
+ASSETS_DIR = BASE_DIR / "assets"
+APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
+APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
+APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
+APP_ICON_PATH = ASSETS_DIR / "operator_assist.ico"
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 TARGET_SAMPLE_RATE = 16000
 AUDIO_BLOCK_MS = 250
 EXACT_DUPLICATE_WINDOW_SEC = 1.2
 EXACT_DUPLICATE_MIN_CHARS = 12
+SIMILAR_DUPLICATE_WINDOW_SEC = 1.8
+SIMILAR_DUPLICATE_MIN_CHARS = 16
+SIMILAR_DUPLICATE_RATIO = 0.84
+LEVEL_METER_RMS_CEILING = 5000
 CHATGPT_URL = "https://chatgpt.com/"
 CHAT_CONTEXT_CHARS = 1400
 CHAT_FULL_CHARS = 2200
@@ -54,6 +64,14 @@ MODEL_CANDIDATES = [
     BASE_DIR / "models" / "vosk-model-ru-0.22",
     BASE_DIR / "models" / "vosk-model-small-ru-0.22",
 ]
+
+
+def models_root():
+    return BASE_DIR / "models"
+
+
+def supported_model_names():
+    return [candidate.name for candidate in MODEL_CANDIDATES]
 
 
 def default_technical_terms_payload():
@@ -126,6 +144,7 @@ def setup_logging():
     logger.info("Transcripts dir=%s", TRANSCRIPTS_DIR)
     logger.info("Logs dir=%s", LOGS_DIR)
     logger.info("Log file=%s", LOG_PATH)
+    logger.info("Assets dir=%s", ASSETS_DIR)
     logger.info("Model candidates=%s", [str(path) for path in MODEL_CANDIDATES])
     logger.info("Technical terms path=%s", TECHNICAL_TERMS_PATH)
     return logger
@@ -239,6 +258,99 @@ def short_text(value, limit=220):
     return shared_short_text(value, limit=limit)
 
 
+def default_models_help_content():
+    supported = "\n".join(f"- {name}" for name in supported_model_names())
+    return (
+        "Папка моделей Vosk для OPERATOR_ASSIST\n\n"
+        "Сюда нужно распаковать русскую модель распознавания.\n"
+        "Поддерживаемые имена папок:\n"
+        f"{supported}\n\n"
+        "Что делать:\n"
+        "1. Скачайте подходящую модель.\n"
+        "2. Распакуйте ее целиком прямо в папку models.\n"
+        "3. Вернитесь в приложение и нажмите Проверить снова.\n\n"
+        "Важно:\n"
+        "- не оставляйте модель внутри zip-архива;\n"
+        "- не делайте лишнюю вложенную папку;\n"
+        "- имя итоговой папки должно совпадать с одним из вариантов выше.\n"
+    )
+
+
+def build_startup_summary(
+    *,
+    model_loading,
+    active_model_name,
+    existing_model_names,
+    model_error_text,
+    mic_selected,
+    speaker_selected,
+    settings_exists,
+    workers_active=False,
+    settings_file_name="operator_assist_settings.json",
+):
+    existing_model_names = [name.strip() for name in existing_model_names if name and name.strip()]
+    model_ready = bool(active_model_name)
+    mic_ready = bool((mic_selected or "").strip())
+    speaker_ready = bool((speaker_selected or "").strip())
+    waiting_model = bool(model_loading and not model_ready)
+
+    if model_ready:
+        model_line = f"OK: модель {active_model_name} загружена."
+    elif waiting_model and existing_model_names:
+        model_line = f"Ждите: модель загружается ({', '.join(existing_model_names[:2])})."
+    elif model_error_text:
+        model_line = f"Ошибка: модель не открылась ({short_text(model_error_text, 110)})."
+    else:
+        model_line = "Нужно: положите в папку models одну из поддерживаемых русских моделей Vosk."
+
+    if mic_ready:
+        mic_line = f"OK: микрофон выбран ({short_text(mic_selected, 72)})."
+    else:
+        mic_line = "Нужно: выберите микрофон оператора."
+
+    if speaker_ready:
+        speaker_line = f"OK: источник собеседника выбран ({short_text(speaker_selected, 72)})."
+    else:
+        speaker_line = "Нужно: выберите источник собеседника или системного звука."
+
+    if settings_exists:
+        settings_line = f"OK: настройки сохраняются в {settings_file_name}."
+    else:
+        settings_line = f"Совет: файл {settings_file_name} появится после первого сохранения настроек."
+
+    if workers_active:
+        title = "Сеанс уже запущен"
+        hint = "Стартовые проверки пройдены. Следите за уровнями сигнала и диагностикой аудио."
+    elif model_error_text:
+        title = "Ошибка загрузки модели"
+        hint = "Проверьте содержимое папки models, затем нажмите Проверить снова. Подробности есть в логах."
+    elif not existing_model_names and not model_ready:
+        title = "Нужна модель распознавания"
+        hint = "Откройте папку models и распакуйте туда русскую модель Vosk. После этого нажмите Проверить снова."
+    elif waiting_model:
+        title = "Загружаю модель"
+        hint = "Большая модель может открываться заметно дольше. Кнопка Старт включится автоматически."
+    elif not mic_ready or not speaker_ready:
+        title = "Проверьте источники звука"
+        hint = "Выберите оба канала. После этого можно сразу запускать распознавание."
+    elif model_ready:
+        title = "Готово к запуску"
+        hint = "Можно нажимать Старт. Если дорожки будут пересекаться, посмотрите блок диагностики аудио."
+    else:
+        title = "Подготовка первого запуска"
+        hint = "Проверяю модель, устройства и сохраненные настройки."
+
+    return {
+        "title": title,
+        "hint": hint,
+        "model_line": model_line,
+        "mic_line": mic_line,
+        "speaker_line": speaker_line,
+        "settings_line": settings_line,
+        "ready": model_ready and mic_ready and speaker_ready and not model_loading and not workers_active,
+    }
+
+
 _TECHNICAL_TERMS_MANAGER = TechnicalTermsManager(
     get_terms_path=lambda: TECHNICAL_TERMS_PATH,
     get_logger=lambda: LOGGER,
@@ -278,6 +390,39 @@ def are_exact_duplicates(left, right):
     return shared_are_exact_duplicates(left, right, min_chars=EXACT_DUPLICATE_MIN_CHARS)
 
 
+def are_similar_duplicates(left, right):
+    return shared_are_similar_duplicates(
+        left,
+        right,
+        min_chars=SIMILAR_DUPLICATE_MIN_CHARS,
+        ratio=SIMILAR_DUPLICATE_RATIO,
+    )
+
+
+def pcm16_level_percent(chunk, *, ceiling=LEVEL_METER_RMS_CEILING):
+    if not chunk:
+        return 0
+
+    try:
+        rms = audioop.rms(chunk, 2)
+    except Exception:
+        LOGGER.exception("Failed to compute PCM RMS level")
+        return 0
+
+    if rms <= 0:
+        return 0
+
+    bounded = min(int(rms), int(ceiling))
+    return max(0, min(100, int(round((bounded / float(ceiling)) * 100))))
+
+
+def format_channel_count(count):
+    if not count:
+        return ""
+    count = int(count)
+    return f"{count} кан." if count > 1 else "1 канал"
+
+
 def find_chrome_exe():
     candidates = [
         Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Chrome" / "Application" / "chrome.exe",
@@ -309,6 +454,7 @@ class TranscriptionWorker:
         self.drop_count = 0
         self.callback_warning_count = 0
         self.chunk_count = 0
+        self.last_level_percent = 0
 
     def start(self):
         LOGGER.info("[%s] Starting worker for device_id=%s", self.label, self.device_id)
@@ -377,6 +523,11 @@ class TranscriptionWorker:
         )
         self.ui_queue.put(("status", self.label, "Остановлено"))
 
+    def _emit_level(self, chunk):
+        level_percent = pcm16_level_percent(chunk)
+        self.last_level_percent = level_percent
+        self.ui_queue.put(("level", self.label, level_percent))
+
     def _audio_callback(self, indata, frames, callback_time, status):
         if status:
             self.callback_warning_count += 1
@@ -397,6 +548,7 @@ class TranscriptionWorker:
 
         if not self.stop_event.is_set() and chunk:
             self.chunk_count += 1
+            self._emit_level(chunk)
             try:
                 self.audio_queue.put_nowait(chunk)
             except queue.Full:
@@ -466,6 +618,9 @@ class OperatorAssistApp:
         self.model = None
         self.model_loading = False
         self.active_model_dir = None
+        self.model_error_text = ""
+        self.model_load_interactive = False
+        self._ensure_runtime_helper_files()
         self.ui_queue = queue.Queue()
         self.workers = {}
         self.devices = self._load_input_devices()
@@ -483,13 +638,36 @@ class OperatorAssistApp:
         self.ai_hint_var = tk.StringVar(value="Мост к ChatGPT выключен до нажатия кнопок. На распознавание он не влияет.")
         self.my_partial_var = tk.StringVar(value="Пока пусто")
         self.speaker_partial_var = tk.StringVar(value="Пока пусто")
+        self.setup_title_var = tk.StringVar(value="Подготовка первого запуска")
+        self.setup_hint_var = tk.StringVar(value="Проверяю модель, устройства и сохраненные настройки.")
+        self.setup_model_var = tk.StringVar(value="Ждите: проверяю наличие модели.")
+        self.setup_mic_var = tk.StringVar(value="Ждите: проверяю микрофон.")
+        self.setup_speaker_var = tk.StringVar(value="Ждите: проверяю источник собеседника.")
+        self.setup_settings_var = tk.StringVar(value="Совет: настройки появятся после первого сохранения.")
+        self.mic_source_var = tk.StringVar(value="Источник: не выбран")
+        self.speaker_source_var = tk.StringVar(value="Источник: не выбран")
+        self.mic_signal_var = tk.StringVar(value="Сигнал: тишина")
+        self.speaker_signal_var = tk.StringVar(value="Сигнал: тишина")
+        self.mic_level_var = tk.IntVar(value=0)
+        self.speaker_level_var = tk.IntVar(value=0)
+        self.route_diag_var = tk.StringVar(
+            value="Диагностика: выберите источники и дождитесь загрузки модели."
+        )
+        self.channel_overlap_warning_active = False
+        self.last_overlap_warning_at = 0.0
+        self.recent_mic_finals = deque()
+        self._brand_logo_image = None
+        self._brand_icon_images = []
 
         LOGGER.info("UI initialized. devices=%s", len(self.devices))
 
+        self._apply_window_branding()
         self._build_ui()
         self._apply_default_devices()
         self._poll_ui_queue()
-        self.root.after(120, self._start_model_loading)
+        self._refresh_startup_readiness()
+        self._update_start_button_state()
+        self.root.after(120, lambda: self._start_model_loading(interactive=False))
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _build_ui(self):
@@ -498,24 +676,11 @@ class OperatorAssistApp:
         wrapper = tk.Frame(self.root, bg="#f3f6f9")
         wrapper.pack(fill="both", expand=True, padx=18, pady=18)
 
-        header = tk.Frame(wrapper, bg="#f3f6f9")
-        header.pack(fill="x", pady=(0, 12))
-
-        tk.Label(
-            header,
-            text="Operator Assist",
-            font=("Segoe UI", 24, "bold"),
-            bg="#f3f6f9",
-            fg="#17324d",
-        ).pack(anchor="w")
-
-        tk.Label(
-            header,
-            text="Одновременное распознавание вашего микрофона и речи собеседника через Стерео микшер",
-            font=("Segoe UI", 11),
-            bg="#f3f6f9",
-            fg="#5f7184",
-        ).pack(anchor="w", pady=(2, 0))
+        self._build_branded_header(
+            wrapper,
+            subtitle_text="Одновременное распознавание вашего микрофона и речи собеседника через Стерео микшер",
+        )
+        self._build_startup_readiness(wrapper)
 
         controls = tk.Frame(wrapper, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         controls.pack(fill="x", pady=(0, 12))
@@ -528,6 +693,7 @@ class OperatorAssistApp:
         self.mic_combo.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.speaker_combo = ttk.Combobox(controls, textvariable=self.speaker_device_var, state="readonly", width=48)
         self.speaker_combo.grid(row=1, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self._bind_device_selection_diagnostics()
 
         buttons = tk.Frame(controls, bg="white")
         buttons.grid(row=1, column=2, padx=(16, 0), sticky="e")
@@ -540,6 +706,8 @@ class OperatorAssistApp:
 
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=1)
+
+        self._build_audio_diagnostics(wrapper)
 
         action_bar = tk.Frame(wrapper, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         action_bar.pack(fill="x", pady=(0, 12))
@@ -566,6 +734,103 @@ class OperatorAssistApp:
         self.speaker_text = self._build_panel(panel_grid, 1, "Собеседник", self.speaker_partial_var)
 
         self._build_chat_bridge(wrapper)
+
+    def _ensure_runtime_helper_files(self):
+        ensure_text_file(PROMPT_TEMPLATE_PATH, default_prompt_template())
+        ensure_text_file(BRIDGE_SCRIPT_PATH, bridge_script_content())
+        ensure_text_file(TECHNICAL_TERMS_PATH, default_technical_terms_content())
+        ensure_text_file(models_root() / "README.txt", default_models_help_content())
+
+    def _build_startup_readiness(self, parent):
+        card = tk.Frame(parent, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
+        card.pack(fill="x", pady=(0, 12))
+        card.configure(padx=16, pady=14)
+        card.grid_columnconfigure(0, weight=1)
+
+        header = tk.Frame(card, bg="white")
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+
+        text_box = tk.Frame(header, bg="white")
+        text_box.grid(row=0, column=0, sticky="w")
+
+        tk.Label(
+            text_box,
+            textvariable=self.setup_title_var,
+            bg="white",
+            fg="#17324d",
+            font=("Segoe UI", 12, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            text_box,
+            textvariable=self.setup_hint_var,
+            bg="white",
+            fg="#5f7184",
+            font=("Segoe UI", 10),
+            wraplength=860,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
+        buttons = tk.Frame(header, bg="white")
+        buttons.grid(row=0, column=1, sticky="e", padx=(16, 0))
+        tk.Button(
+            buttons,
+            text="Папка models",
+            command=self.open_models_folder,
+            bg="#eef6ff",
+            fg="#17406d",
+            relief="flat",
+            padx=12,
+            pady=8,
+        ).pack(side="left", padx=(0, 8))
+        tk.Button(
+            buttons,
+            text="Папка приложения",
+            command=self.open_application_folder,
+            bg="#f6f8fb",
+            fg="#17324d",
+            relief="flat",
+            padx=12,
+            pady=8,
+        ).pack(side="left", padx=(0, 8))
+        tk.Button(
+            buttons,
+            text="Проверить снова",
+            command=self.refresh_startup_checks,
+            bg="#e8f8f2",
+            fg="#0b5d4f",
+            relief="flat",
+            padx=12,
+            pady=8,
+        ).pack(side="left")
+
+        checklist = tk.Frame(card, bg="#f8fbfd", highlightbackground="#e3ebf3", highlightthickness=1)
+        checklist.grid(row=1, column=0, sticky="ew", pady=(14, 0))
+        checklist.grid_columnconfigure(1, weight=1)
+        checklist.configure(padx=12, pady=12)
+
+        self._build_startup_row(checklist, 0, "Модель", self.setup_model_var)
+        self._build_startup_row(checklist, 1, "Микрофон", self.setup_mic_var)
+        self._build_startup_row(checklist, 2, "Собеседник", self.setup_speaker_var)
+        self._build_startup_row(checklist, 3, "Настройки", self.setup_settings_var)
+
+    def _build_startup_row(self, parent, row, title, value_var):
+        tk.Label(
+            parent,
+            text=title,
+            bg="#f8fbfd",
+            fg="#17324d",
+            font=("Segoe UI", 10, "bold"),
+        ).grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=(0 if row == 0 else 8, 0))
+        tk.Label(
+            parent,
+            textvariable=value_var,
+            bg="#f8fbfd",
+            fg="#5f7184",
+            font=("Segoe UI", 10),
+            justify="left",
+            wraplength=980,
+        ).grid(row=row, column=1, sticky="w", pady=(0 if row == 0 else 8, 0))
 
     def _build_panel(self, parent, column, title, partial_var):
         panel = tk.Frame(parent, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
@@ -614,6 +879,379 @@ class OperatorAssistApp:
         self.ai_prompt_text = ScrolledText(bridge, wrap="word", font=("Consolas", 10), height=12, undo=True)
         self.ai_prompt_text.grid(row=5, column=0, sticky="nsew")
 
+    def _load_brand_photo(self, path):
+        if not path.exists():
+            return None
+        try:
+            return tk.PhotoImage(file=str(path))
+        except Exception:
+            LOGGER.exception("Failed to load brand image: %s", path)
+            return None
+
+    def _apply_window_branding(self):
+        icon_images = []
+        for path in (APP_LOGO_SMALL_PATH, APP_LOGO_LARGE_PATH):
+            image = self._load_brand_photo(path)
+            if image is not None:
+                icon_images.append(image)
+
+        self._brand_icon_images = icon_images
+        self._brand_logo_image = icon_images[0] if icon_images else self._load_brand_photo(APP_LOGO_PATH)
+
+        if APP_ICON_PATH.exists():
+            try:
+                self.root.iconbitmap(default=str(APP_ICON_PATH))
+            except Exception:
+                LOGGER.exception("Failed to apply iconbitmap from %s", APP_ICON_PATH)
+
+        if icon_images:
+            try:
+                self.root.iconphoto(True, *icon_images)
+            except Exception:
+                LOGGER.exception("Failed to apply iconphoto branding")
+
+    def _build_branded_header(self, parent, *, subtitle_text):
+        header = tk.Frame(parent, bg="#f3f6f9")
+        header.pack(fill="x", pady=(0, 12))
+
+        row = tk.Frame(header, bg="#f3f6f9")
+        row.pack(fill="x")
+
+        if self._brand_logo_image is not None:
+            tk.Label(
+                row,
+                image=self._brand_logo_image,
+                bg="#f3f6f9",
+            ).pack(side="left", padx=(0, 14))
+
+        text_block = tk.Frame(row, bg="#f3f6f9")
+        text_block.pack(side="left", fill="x", expand=True)
+
+        tk.Label(
+            text_block,
+            text="Operator Assist",
+            font=("Segoe UI", 24, "bold"),
+            bg="#f3f6f9",
+            fg="#17324d",
+        ).pack(anchor="w")
+
+        tk.Label(
+            text_block,
+            text=subtitle_text,
+            font=("Segoe UI", 11),
+            bg="#f3f6f9",
+            fg="#5f7184",
+        ).pack(anchor="w", pady=(2, 0))
+
+        return header
+
+    def _refresh_startup_readiness(self):
+        summary = build_startup_summary(
+            model_loading=self.model_loading,
+            active_model_name=self._current_model_name() if self.active_model_dir is not None else "",
+            existing_model_names=[path.name for path in find_existing_models()],
+            model_error_text=self.model_error_text,
+            mic_selected=self.mic_device_var.get().strip(),
+            speaker_selected=self.speaker_device_var.get().strip(),
+            settings_exists=SETTINGS_PATH.exists(),
+            workers_active=bool(self.workers),
+            settings_file_name=SETTINGS_PATH.name,
+        )
+        self.setup_title_var.set(summary["title"])
+        self.setup_hint_var.set(summary["hint"])
+        self.setup_model_var.set(summary["model_line"])
+        self.setup_mic_var.set(summary["mic_line"])
+        self.setup_speaker_var.set(summary["speaker_line"])
+        self.setup_settings_var.set(summary["settings_line"])
+
+    def _can_start_transcription(self):
+        return (
+            not self.model_loading
+            and self.model is not None
+            and not self.workers
+            and self._selected_mic_device() is not None
+            and self._selected_speaker_source() is not None
+        )
+
+    def _update_start_button_state(self):
+        if hasattr(self, "start_button"):
+            self.start_button.configure(state="normal" if self._can_start_transcription() else "disabled")
+
+    def _build_audio_diagnostics(self, parent):
+        diagnostics = tk.Frame(
+            parent,
+            bg="white",
+            highlightbackground="#d9e2ec",
+            highlightthickness=1,
+        )
+        diagnostics.pack(fill="x", pady=(0, 12))
+        diagnostics.configure(padx=16, pady=14)
+        diagnostics.grid_columnconfigure(0, weight=1)
+        diagnostics.grid_columnconfigure(1, weight=1)
+
+        tk.Label(
+            diagnostics,
+            text="Диагностика аудио",
+            bg="white",
+            fg="#17324d",
+            font=("Segoe UI", 11, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+        tk.Label(
+            diagnostics,
+            text="Ниже видно, какой источник выбран для каждого канала и есть ли по нему живой сигнал.",
+            bg="white",
+            fg="#5f7184",
+            font=("Segoe UI", 10),
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 12))
+
+        self._build_audio_channel_card(
+            diagnostics,
+            column=0,
+            title="Микрофон / оператор",
+            source_var=self.mic_source_var,
+            signal_var=self.mic_signal_var,
+            level_var=self.mic_level_var,
+        )
+        self._build_audio_channel_card(
+            diagnostics,
+            column=1,
+            title="Собеседник / системный звук",
+            source_var=self.speaker_source_var,
+            signal_var=self.speaker_signal_var,
+            level_var=self.speaker_level_var,
+            padx=(12, 0),
+        )
+
+        tk.Label(
+            diagnostics,
+            textvariable=self.route_diag_var,
+            bg="white",
+            fg="#5f7184",
+            font=("Segoe UI", 10),
+            wraplength=1100,
+            justify="left",
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
+    def _build_audio_channel_card(
+        self,
+        parent,
+        *,
+        column,
+        title,
+        source_var,
+        signal_var,
+        level_var,
+        padx=(0, 0),
+    ):
+        card = tk.Frame(parent, bg="#f8fbfd", highlightbackground="#e3ebf3", highlightthickness=1)
+        card.grid(row=2, column=column, sticky="ew", padx=padx)
+        card.grid_columnconfigure(0, weight=1)
+        card.configure(padx=12, pady=12)
+
+        tk.Label(
+            card,
+            text=title,
+            bg="#f8fbfd",
+            fg="#17324d",
+            font=("Segoe UI", 10, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+        tk.Label(
+            card,
+            textvariable=source_var,
+            bg="#f8fbfd",
+            fg="#5f7184",
+            font=("Segoe UI", 9),
+            wraplength=500,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 8))
+
+        ttk.Progressbar(
+            card,
+            orient="horizontal",
+            mode="determinate",
+            maximum=100,
+            variable=level_var,
+        ).grid(row=2, column=0, sticky="ew")
+        tk.Label(
+            card,
+            textvariable=signal_var,
+            bg="#f8fbfd",
+            fg="#5f7184",
+            font=("Segoe UI", 9),
+        ).grid(row=3, column=0, sticky="w", pady=(8, 0))
+
+    def _bind_device_selection_diagnostics(self):
+        if hasattr(self, "mic_combo"):
+            self.mic_combo.bind("<<ComboboxSelected>>", self._on_device_selection_changed)
+        if hasattr(self, "speaker_combo"):
+            self.speaker_combo.bind("<<ComboboxSelected>>", self._on_device_selection_changed)
+
+    def _on_device_selection_changed(self, _event=None):
+        self.channel_overlap_warning_active = False
+        self._refresh_audio_diagnostics()
+
+    def _selected_mic_source_info(self):
+        if hasattr(self, "_selected_mic_device"):
+            device = self._selected_mic_device()
+            if device is not None:
+                return {
+                    "display": device.get("name") or self.mic_device_var.get() or "Не выбран",
+                    "mode_label": "физический вход",
+                    "channels": max(1, min(2, int(device.get("max_input_channels") or 1))),
+                    "samplerate": int(device.get("default_samplerate") or 0) or None,
+                    "hostapi_name": device.get("hostapi_name", ""),
+                }
+
+        return {
+            "display": self.mic_device_var.get() or "Не выбран",
+            "mode_label": "вход",
+        }
+
+    def _selected_speaker_source_info(self):
+        if hasattr(self, "_selected_speaker_source"):
+            source = self._selected_speaker_source()
+            if source is not None:
+                return {
+                    "display": source.get("name") or source.get("label") or self.speaker_device_var.get() or "Не выбран",
+                    "mode_label": source.get("mode_label", "вход"),
+                    "channels": int(source.get("channels") or 0) or None,
+                    "samplerate": int(source.get("default_samplerate") or 0) or None,
+                    "hostapi_name": source.get("hostapi_name", ""),
+                }
+
+        return {
+            "display": self.speaker_device_var.get() or "Не выбран",
+            "mode_label": "вход",
+        }
+
+    def _format_source_summary(self, info):
+        display = (info.get("display") or "Не выбран").strip()
+        metadata = []
+
+        mode_label = (info.get("mode_label") or "").strip()
+        if mode_label:
+            metadata.append(mode_label)
+
+        channels_text = format_channel_count(info.get("channels"))
+        if channels_text:
+            metadata.append(channels_text)
+
+        samplerate = info.get("samplerate")
+        if samplerate:
+            metadata.append(f"{int(round(int(samplerate) / 1000.0))} кГц")
+
+        hostapi_name = (info.get("hostapi_name") or "").strip()
+        if hostapi_name and hostapi_name not in metadata:
+            metadata.append(hostapi_name)
+
+        if metadata:
+            return f"{display} | {', '.join(metadata)}"
+        return display
+
+    def _set_route_diag_message(self, message=None):
+        if message is not None:
+            self.route_diag_var.set(message)
+            return
+
+        mic_info = self._selected_mic_source_info()
+        speaker_info = self._selected_speaker_source_info()
+
+        if self.workers:
+            self.route_diag_var.set(
+                "Маршрут активен: "
+                f"оператор -> {mic_info.get('mode_label', 'вход')}; "
+                f"собеседник -> {speaker_info.get('mode_label', 'вход')}. "
+                "Если одинаковые фразы попадают в обе колонки, проверьте выбор источников."
+            )
+            return
+
+        self.route_diag_var.set(
+            "Маршрут выбран: "
+            f"оператор -> {mic_info.get('mode_label', 'вход')}; "
+            f"собеседник -> {speaker_info.get('mode_label', 'вход')}. "
+            "После старта следите за уровнями сигнала ниже."
+        )
+
+    def _refresh_audio_diagnostics(self):
+        self.mic_source_var.set(self._format_source_summary(self._selected_mic_source_info()))
+        self.speaker_source_var.set(self._format_source_summary(self._selected_speaker_source_info()))
+        if not self.channel_overlap_warning_active:
+            self._set_route_diag_message()
+        self._refresh_startup_readiness()
+        self._update_start_button_state()
+
+    def _reset_audio_diagnostics(self):
+        self.mic_level_var.set(0)
+        self.speaker_level_var.set(0)
+        self.mic_signal_var.set("Сигнал: тишина")
+        self.speaker_signal_var.set("Сигнал: тишина")
+        self.channel_overlap_warning_active = False
+        self.last_overlap_warning_at = 0.0
+        self._set_route_diag_message()
+        self._refresh_startup_readiness()
+        self._update_start_button_state()
+
+    def _set_channel_signal(self, label, level_percent):
+        if label == "me":
+            level_var = self.mic_level_var
+            signal_var = self.mic_signal_var
+        else:
+            level_var = self.speaker_level_var
+            signal_var = self.speaker_signal_var
+
+        level_var.set(level_percent)
+        if level_percent >= 60:
+            state_text = "сильный"
+        elif level_percent >= 25:
+            state_text = "есть"
+        elif level_percent >= 8:
+            state_text = "слабый"
+        else:
+            state_text = "тишина"
+        signal_var.set(f"Сигнал: {state_text} ({level_percent}%)")
+
+    def _remember_recent_final(self, bucket, text, event_time):
+        cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
+        bucket.append((text, event_time))
+        while bucket and bucket[0][1] < cutoff:
+            bucket.popleft()
+
+    def _find_recent_overlap(self, text, event_time, recent_items):
+        for other_text, other_time in reversed(recent_items):
+            if event_time - other_time > SIMILAR_DUPLICATE_WINDOW_SEC:
+                break
+
+            if are_exact_duplicates(text, other_text):
+                return "exact", other_text
+            if are_similar_duplicates(text, other_text):
+                return "similar", other_text
+
+        return None, None
+
+    def _channel_name(self, label):
+        return "микрофон" if label == "me" else "канал собеседника"
+
+    def _register_channel_overlap(self, label, against_label, text, relation):
+        now = time.monotonic()
+        if relation == "similar" and now - self.last_overlap_warning_at < 1.5:
+            return
+
+        self.last_overlap_warning_at = now
+        self.channel_overlap_warning_active = True
+        relation_text = "одинаковую реплику" if relation == "exact" else "очень похожую реплику"
+        self.route_diag_var.set(
+            "Диагностика: похоже, каналы пересекаются. "
+            f"{self._channel_name(label).capitalize()} и {self._channel_name(against_label)} поймали {relation_text}. "
+            "Проверьте, что источник собеседника не дублирует микрофон."
+        )
+        LOGGER.warning(
+            "Potential channel overlap detected. label=%s against=%s relation=%s text=%s",
+            label,
+            against_label,
+            relation,
+            short_text(text, 220),
+        )
+
     def _load_input_devices(self):
         devices = []
         raw_devices = sd.query_devices()
@@ -633,6 +1271,29 @@ class OperatorAssistApp:
 
     def _device_label(self, device):
         return f"{device['id']}: {device['name']}"
+
+    def _find_device_by_label(self, label):
+        for device in self.devices:
+            if self._device_label(device) == label:
+                return device
+        return None
+
+    def _selected_mic_device(self):
+        return self._find_device_by_label(self.mic_device_var.get())
+
+    def _selected_speaker_source(self):
+        device = self._find_device_by_label(self.speaker_device_var.get())
+        if device is None:
+            return None
+        return {
+            "kind": "input",
+            "mode_label": "вход",
+            "label": self._device_label(device),
+            "name": device["name"],
+            "device_id": device["id"],
+            "channels": max(1, min(2, int(device.get("max_input_channels") or 1))),
+            "default_samplerate": int(device.get("default_samplerate") or 0) or None,
+        }
 
     def _load_settings(self):
         if SETTINGS_PATH.exists():
@@ -654,8 +1315,10 @@ class OperatorAssistApp:
             "chrome_window_keyword": self.chrome_window_var.get().strip(),
             "chrome_auto_enter": bool(self.auto_enter_var.get()),
         }
+        self.settings.update(payload)
         SETTINGS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         LOGGER.info("Saved settings: %s", json.dumps(payload, ensure_ascii=False))
+        self._refresh_startup_readiness()
 
     def _apply_default_devices(self):
         labels = [self._device_label(device) for device in self.devices]
@@ -664,6 +1327,9 @@ class OperatorAssistApp:
 
         if not labels:
             LOGGER.warning("No input devices available")
+            self.mic_device_var.set("")
+            self.speaker_device_var.set("")
+            self._refresh_audio_diagnostics()
             return
 
         saved_mic = self.settings.get("mic_device")
@@ -680,6 +1346,7 @@ class OperatorAssistApp:
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
         )
+        self._refresh_audio_diagnostics()
 
     def _find_default_label(self, keywords):
         for device in self.devices:
@@ -688,22 +1355,29 @@ class OperatorAssistApp:
                 return self._device_label(device)
         return None
 
-    def _start_model_loading(self):
+    def _start_model_loading(self, interactive=False):
         if self.model_loading or self.model is not None:
             return
 
+        self.model_load_interactive = bool(interactive)
         existing_models = find_existing_models()
         if not existing_models:
             LOGGER.error("No speech models found")
+            self.model_error_text = "В папке models нет подходящей модели распознавания."
             self.status_var.set("Модель не найдена")
             self.hint_var.set("В папке models нет подходящей модели распознавания.")
-            messagebox.showerror(APP_TITLE, "Не найдена модель распознавания в папке models.")
+            self._refresh_startup_readiness()
+            self._update_start_button_state()
+            if interactive:
+                messagebox.showerror(APP_TITLE, "Не найдена модель распознавания в папке models.")
             return
 
         self.model_loading = True
+        self.model_error_text = ""
         self.status_var.set("Загружаю модель")
         self.hint_var.set("Большая модель может загружаться долго, но окно уже работает. Ждите готовности кнопки Старт.")
-        self.start_button.configure(state="disabled")
+        self._refresh_startup_readiness()
+        self._update_start_button_state()
         LOGGER.info("Scheduling background model loading. candidates=%s", [str(path) for path in existing_models])
 
         loader = threading.Thread(target=self._load_model_worker, daemon=True, name="ModelLoader")
@@ -745,11 +1419,14 @@ class OperatorAssistApp:
             messagebox.showerror(APP_TITLE, "Модель распознавания не загружена.")
             return
 
-        try:
-            mic_id = self._get_device_id(self.mic_device_var.get())
-            speaker_id = self._get_device_id(self.speaker_device_var.get())
-        except Exception:
-            LOGGER.exception("Failed to parse selected devices")
+        mic_device = self._selected_mic_device()
+        speaker_source = self._selected_speaker_source()
+        if mic_device is None or speaker_source is None:
+            LOGGER.error(
+                "Selected devices are missing. mic=%s speaker=%s",
+                self.mic_device_var.get(),
+                self.speaker_device_var.get(),
+            )
             messagebox.showerror(APP_TITLE, "Выберите оба устройства ввода.")
             return
 
@@ -763,8 +1440,8 @@ class OperatorAssistApp:
         self.stop_transcription()
 
         try:
-            self.workers["me"] = TranscriptionWorker("me", self.model, mic_id, self.ui_queue)
-            self.workers["speaker"] = TranscriptionWorker("speaker", self.model, speaker_id, self.ui_queue)
+            self.workers["me"] = TranscriptionWorker("me", self.model, mic_device["id"], self.ui_queue)
+            self.workers["speaker"] = TranscriptionWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue)
             self.workers["me"].start()
             self.workers["speaker"].start()
         except Exception as error:
@@ -775,7 +1452,11 @@ class OperatorAssistApp:
 
         self.status_var.set("Идет одновременное распознавание")
         self.hint_var.set(f"Активная модель: {self._current_model_name()}. Блок ChatGPT работает отдельно и не мешает распознаванию.")
-        self.start_button.configure(state="disabled")
+        self.channel_overlap_warning_active = False
+        self.recent_mic_finals.clear()
+        self.recent_speaker_finals.clear()
+        self._refresh_audio_diagnostics()
+        self._update_start_button_state()
         self.stop_button.configure(state="normal")
         self._save_settings()
 
@@ -786,12 +1467,11 @@ class OperatorAssistApp:
         for worker in list(self.workers.values()):
             worker.stop()
         self.workers = {}
+        self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
+        self._reset_audio_diagnostics()
 
-        if self.model is not None and not self.model_loading:
-            self.start_button.configure(state="normal")
-        else:
-            self.start_button.configure(state="disabled")
+        self._update_start_button_state()
         self.stop_button.configure(state="disabled")
 
     def refresh_devices(self):
@@ -799,13 +1479,25 @@ class OperatorAssistApp:
         self.devices = self._load_input_devices()
         self._apply_default_devices()
         self.hint_var.set("Список аудиоустройств обновлен.")
+        self.channel_overlap_warning_active = False
+        self._refresh_audio_diagnostics()
+
+    def refresh_startup_checks(self):
+        LOGGER.info("Refreshing startup readiness checks")
+        self.devices = self._load_input_devices()
+        self._apply_default_devices()
+        if self.model is None and not self.model_loading:
+            self._start_model_loading(interactive=True)
+        else:
+            self._refresh_startup_readiness()
+            self._update_start_button_state()
 
     def _append_text(self, widget, text):
         widget.insert("end", text)
         widget.see("end")
 
     def _remember_speaker_final(self, text, event_time):
-        cutoff = event_time - EXACT_DUPLICATE_WINDOW_SEC
+        cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
         self.recent_speaker_finals.append((text, event_time))
 
         while self.recent_speaker_finals and self.recent_speaker_finals[0][1] < cutoff:
@@ -835,10 +1527,28 @@ class OperatorAssistApp:
                 if kind == "final":
                     _, label, text, event_time = message
                     if label == "speaker":
+                        relation, _matched_text = self._find_recent_overlap(
+                            text, event_time, self.recent_mic_finals
+                        )
+                        if relation:
+                            self._register_channel_overlap(label, "me", text, relation)
                         self._remember_speaker_final(text, event_time)
                         self._append_text(self.speaker_text, text + " ")
                     else:
-                        if not self._is_recent_exact_speaker_duplicate(text, event_time):
+                        relation, matched_text = self._find_recent_overlap(
+                            text, event_time, self.recent_speaker_finals
+                        )
+                        if relation == "exact":
+                            self._register_channel_overlap(label, "speaker", text, relation)
+                            LOGGER.info(
+                                "Suppressing exact duplicate in mic pane. me=%s speaker=%s",
+                                short_text(text, 160),
+                                short_text(matched_text, 160),
+                            )
+                        else:
+                            if relation == "similar":
+                                self._register_channel_overlap(label, "speaker", text, relation)
+                            self._remember_recent_final(self.recent_mic_finals, text, event_time)
                             self._append_text(self.my_text, text + " ")
                 elif kind == "partial":
                     _, label, text = message
@@ -846,6 +1556,9 @@ class OperatorAssistApp:
                         self.my_partial_var.set(text or "Пока пусто")
                     else:
                         self.speaker_partial_var.set(text or "Пока пусто")
+                elif kind == "level":
+                    _, label, level_percent = message
+                    self._set_channel_signal(label, level_percent)
                 elif kind == "status":
                     _, label, text = message
                     if label == "me":
@@ -860,19 +1573,26 @@ class OperatorAssistApp:
                     self.model = model
                     self.active_model_dir = Path(model_dir_text)
                     self.model_loading = False
+                    self.model_error_text = ""
+                    self.model_load_interactive = False
                     self.status_var.set("Готово")
                     self.hint_var.set(f"Модель {self.active_model_dir.name} загружена за {duration:.1f} с. Можно нажимать Старт.")
-                    if not self.workers:
-                        self.start_button.configure(state="normal")
+                    self._refresh_startup_readiness()
+                    self._update_start_button_state()
                     LOGGER.info("UI received loaded model: %s", self.active_model_dir)
                 elif kind == "model_failed":
                     _, error_text = message
                     self.model_loading = False
+                    self.model_error_text = error_text
                     self.status_var.set("Ошибка загрузки модели")
                     self.hint_var.set("Не удалось загрузить модель. Подробности в логах.")
-                    self.start_button.configure(state="disabled")
+                    interactive = self.model_load_interactive
+                    self.model_load_interactive = False
+                    self._refresh_startup_readiness()
+                    self._update_start_button_state()
                     LOGGER.error("All model loading attempts failed: %s", error_text)
-                    messagebox.showerror(APP_TITLE, f"Не удалось загрузить модель:\n{error_text}")
+                    if interactive:
+                        messagebox.showerror(APP_TITLE, f"Не удалось загрузить модель:\n{error_text}")
         except queue.Empty:
             pass
 
@@ -929,6 +1649,19 @@ class OperatorAssistApp:
         os.startfile(str(LOGS_DIR))
         self.hint_var.set(f"Открыта папка логов: {LOGS_DIR}")
         LOGGER.info("Opened logs folder: %s", LOGS_DIR)
+
+    def open_models_folder(self):
+        self._ensure_runtime_helper_files()
+        model_dir = models_root()
+        model_dir.mkdir(parents=True, exist_ok=True)
+        os.startfile(str(model_dir))
+        self.hint_var.set("Открыта папка models. Скопируйте туда русскую модель Vosk и нажмите Проверить снова.")
+        LOGGER.info("Opened models folder: %s", model_dir)
+
+    def open_application_folder(self):
+        os.startfile(str(BASE_DIR))
+        self.hint_var.set(f"Открыта папка приложения: {BASE_DIR}")
+        LOGGER.info("Opened application folder: %s", BASE_DIR)
 
     def clear_text(self):
         if not messagebox.askyesno(APP_TITLE, "Очистить обе текстовые панели?"):

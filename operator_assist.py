@@ -778,16 +778,22 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         if not mic_labels:
             _runtime.LOGGER.warning("No microphone devices available")
-            return
-
-        if not speaker_labels:
-            _runtime.LOGGER.warning("No speaker capture sources available")
+            self.mic_device_var.set("")
+            self.speaker_device_var.set("")
+            self._refresh_audio_diagnostics()
             return
 
         saved_mic = self.settings.get("mic_device")
         saved_speaker = self.settings.get("speaker_device")
 
         mic_default = saved_mic if saved_mic in mic_labels else self._find_mic_label(("\u043c\u0438\u043a\u0440\u043e\u0444", "microphone", "mic input"))
+
+        if not speaker_labels:
+            _runtime.LOGGER.warning("No speaker capture sources available")
+            self.mic_device_var.set(mic_default or mic_labels[0])
+            self.speaker_device_var.set("")
+            self._refresh_audio_diagnostics()
+            return
 
         if saved_speaker in speaker_labels and saved_speaker.startswith("WASAPI loopback:"):
             speaker_default = saved_speaker
@@ -806,6 +812,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
         )
+        self._refresh_audio_diagnostics()
 
     def _save_settings(self):
         super()._save_settings()
@@ -818,8 +825,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             except Exception:
                 _runtime.LOGGER.exception("Failed to reload settings before adding IT mode flag")
         payload["it_mode_enabled"] = bool(self.it_mode_var.get())
+        self.settings = dict(payload)
         _runtime.SETTINGS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         _runtime.LOGGER.info("Saved IT mode state: %s", payload["it_mode_enabled"])
+        self._refresh_startup_readiness()
 
     def _build_ui(self):
         self._ensure_it_mode_state()
@@ -864,24 +873,11 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         outer = runtime.tk.Frame(wrapper, bg="#f3f6f9")
         outer.pack(fill="both", expand=True, padx=18, pady=18)
 
-        header = runtime.tk.Frame(outer, bg="#f3f6f9")
-        header.pack(fill="x", pady=(0, 12))
-
-        runtime.tk.Label(
-            header,
-            text="Operator Assist",
-            font=("Segoe UI", 24, "bold"),
-            bg="#f3f6f9",
-            fg="#17324d",
-        ).pack(anchor="w")
-
-        runtime.tk.Label(
-            header,
-            text="\u041e\u0434\u043d\u043e\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u0435 \u0432\u0430\u0448\u0435\u0433\u043e \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0430 \u0438 \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u043e\u0433\u043e \u0437\u0432\u0443\u043a\u0430 \u0447\u0435\u0440\u0435\u0437 WASAPI loopback \u0438\u043b\u0438 \u0437\u0430\u043f\u0430\u0441\u043d\u043e\u0439 \u0432\u0445\u043e\u0434",
-            font=("Segoe UI", 11),
-            bg="#f3f6f9",
-            fg="#5f7184",
-        ).pack(anchor="w", pady=(2, 0))
+        self._build_branded_header(
+            outer,
+            subtitle_text="Одновременное распознавание вашего микрофона и системного звука через WASAPI loopback или запасной вход",
+        )
+        self._build_startup_readiness(outer)
 
         controls = runtime.tk.Frame(outer, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         controls.pack(fill="x", pady=(0, 12))
@@ -894,6 +890,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.mic_combo.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.speaker_combo = runtime.ttk.Combobox(controls, textvariable=self.speaker_device_var, state="readonly", width=48)
         self.speaker_combo.grid(row=1, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self._bind_device_selection_diagnostics()
 
         buttons = runtime.tk.Frame(controls, bg="white")
         buttons.grid(row=1, column=2, padx=(16, 0), sticky="e")
@@ -906,6 +903,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=1)
+
+        self._build_audio_diagnostics(outer)
 
         action_bar = runtime.tk.Frame(outer, bg="white", highlightbackground="#d9e2ec", highlightthickness=1)
         action_bar.pack(fill="x", pady=(0, 12))

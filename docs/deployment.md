@@ -129,6 +129,12 @@ By default the script:
 5. creates a portable zip archive,
 6. tries to build an Inno Setup installer when `ISCC.exe` is available.
 
+Typical successful outputs:
+
+- `release/portable/OPERATOR_ASSIST`
+- `release/portable/OPERATOR_ASSIST-portable.zip`
+- `release/installer/OPERATOR_ASSIST-Setup.exe`
+
 Useful switches:
 
 - `-SkipTests`
@@ -149,6 +155,19 @@ That keeps the packaged app aligned with the existing product behavior:
 - `chatgpt_prompt_template.txt` stays editable,
 - `models/` stays external,
 - `logs/` and `transcripts/` stay writable next to the executable.
+
+## First-Launch Expectations
+
+The current desktop build assumes a supported local Vosk model is still provided out-of-band by the operator or reviewer.
+
+To reduce friction, the desktop runtime now includes:
+
+- a startup-readiness block,
+- a quick button to open the `models/` directory,
+- a quick button to open the application root,
+- a re-check action that validates model presence and source selection again.
+
+More detail: [First launch guide](first-launch.md)
 
 ## Recommended Demo Setup
 
