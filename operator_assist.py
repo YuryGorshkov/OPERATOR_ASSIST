@@ -1,7 +1,11 @@
 import importlib.util
 import json
-import re
 from pathlib import Path
+
+from operator_assist_runtime.technical_terms import (
+    TechnicalTermsManager,
+    serialize_terms_payload,
+)
 
 
 WRAPPER_VERSION = "2026-07-14-it-mode1"
@@ -631,13 +635,6 @@ IT_MODE_REPLACEMENTS = {
     "\u044f\u043d\u0434\u0435\u043a\u0441\u043a\u043b\u0430\u0443\u0434": "Yandex Cloud"
 }
 
-_ACTIVE_TECHNICAL_MODES = tuple()
-_TECHNICAL_TERMS_CACHE_KEY = None
-_TECHNICAL_TERMS_PAYLOAD = None
-_TECHNICAL_TERMS_SOURCE = "built-in defaults"
-_RESOLVED_TERMS_CACHE = {}
-
-
 def default_technical_terms_payload():
     return {
         "enabled": True,
@@ -654,158 +651,44 @@ def default_technical_terms_payload():
 
 
 def default_technical_terms_content():
-    return json.dumps(default_technical_terms_payload(), ensure_ascii=False, indent=2)
+    return serialize_terms_payload(default_technical_terms_payload())
 
 
-def _technical_terms_cache_key():
-    try:
-        stat = _runtime.TECHNICAL_TERMS_PATH.stat()
-        return (str(_runtime.TECHNICAL_TERMS_PATH), stat.st_mtime_ns, stat.st_size)
-    except OSError:
-        return (str(_runtime.TECHNICAL_TERMS_PATH), None, None)
-
-
-def _normalize_mapping(raw_mapping):
-    normalized = {}
-    if isinstance(raw_mapping, dict):
-        for raw_key, raw_value in raw_mapping.items():
-            key = _runtime.normalize_name(raw_key)
-            value = " ".join(str(raw_value or "").split())
-            if key and value:
-                normalized[key] = value
-    return normalized
+_TECHNICAL_TERMS_MANAGER = TechnicalTermsManager(
+    get_terms_path=lambda: _runtime.TECHNICAL_TERMS_PATH,
+    get_logger=lambda: _runtime.LOGGER,
+    normalize_name=_runtime.normalize_name,
+    short_text=_runtime.short_text,
+    default_payload_factory=default_technical_terms_payload,
+)
 
 
 def load_technical_terms(force=False):
-    global _TECHNICAL_TERMS_CACHE_KEY, _TECHNICAL_TERMS_PAYLOAD, _TECHNICAL_TERMS_SOURCE, _RESOLVED_TERMS_CACHE
-
-    cache_key = _technical_terms_cache_key()
-    if not force and cache_key == _TECHNICAL_TERMS_CACHE_KEY and _TECHNICAL_TERMS_PAYLOAD is not None:
-        return _TECHNICAL_TERMS_PAYLOAD
-
-    payload = default_technical_terms_payload()
-    source = "built-in defaults"
-
-    if _runtime.TECHNICAL_TERMS_PATH.exists():
-        try:
-            loaded = json.loads(_runtime.TECHNICAL_TERMS_PATH.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                payload = loaded
-                source = str(_runtime.TECHNICAL_TERMS_PATH)
-            else:
-                raise ValueError("Technical terms file must contain a JSON object.")
-        except Exception:
-            _runtime.LOGGER.exception("Failed to load technical terms from %s, using defaults", _runtime.TECHNICAL_TERMS_PATH)
-
-    enabled = bool(payload.get("enabled", True))
-    global_replacements = _normalize_mapping(payload.get("replacements", {}))
-    modes = {}
-
-    raw_modes = payload.get("modes", {})
-    if isinstance(raw_modes, dict):
-        for raw_mode_name, raw_mode_payload in raw_modes.items():
-            mode_name = " ".join(str(raw_mode_name or "").strip().split())
-            if not mode_name or not isinstance(raw_mode_payload, dict):
-                continue
-
-            replacements = _normalize_mapping(raw_mode_payload.get("replacements", {}))
-            modes[mode_name] = {
-                "label": " ".join(str(raw_mode_payload.get("label") or mode_name).split()),
-                "description": " ".join(str(raw_mode_payload.get("description") or "").split()),
-                "replacements": replacements,
-                "term_count": len(replacements),
-            }
-
-    _TECHNICAL_TERMS_CACHE_KEY = cache_key
-    _TECHNICAL_TERMS_SOURCE = source
-    _TECHNICAL_TERMS_PAYLOAD = {
-        "enabled": enabled,
-        "replacements": global_replacements,
-        "modes": modes,
-        "source": source,
-    }
-    _RESOLVED_TERMS_CACHE = {}
-    _runtime.LOGGER.info(
-        "Technical terms loaded. enabled=%s global_terms=%s modes=%s source=%s",
-        enabled,
-        len(global_replacements),
-        {name: info["term_count"] for name, info in modes.items()},
-        source,
-    )
-    return _TECHNICAL_TERMS_PAYLOAD
+    return _TECHNICAL_TERMS_MANAGER.load(force=force)
 
 
 def get_available_technical_modes():
-    return load_technical_terms().get("modes", {})
+    return _TECHNICAL_TERMS_MANAGER.get_available_modes()
 
 
 def set_active_technical_modes(modes):
-    global _ACTIVE_TECHNICAL_MODES
-
-    available = get_available_technical_modes()
-    normalized = []
-    for raw_mode in modes or ():
-        mode_name = " ".join(str(raw_mode or "").strip().split())
-        if mode_name and mode_name in available and mode_name not in normalized:
-            normalized.append(mode_name)
-    _ACTIVE_TECHNICAL_MODES = tuple(normalized)
-    return _ACTIVE_TECHNICAL_MODES
+    return _TECHNICAL_TERMS_MANAGER.set_active_modes(modes)
 
 
 def get_active_technical_modes():
-    return _ACTIVE_TECHNICAL_MODES
+    return _TECHNICAL_TERMS_MANAGER.get_active_modes()
 
 
 def resolve_active_technical_terms(active_modes=None):
-    payload = load_technical_terms()
-    if not payload.get("enabled", True):
-        return {}, None
-
-    mode_names = tuple(active_modes if active_modes is not None else get_active_technical_modes())
-    if mode_names in _RESOLVED_TERMS_CACHE:
-        return _RESOLVED_TERMS_CACHE[mode_names]
-
-    combined = dict(payload.get("replacements", {}))
-    for mode_name in mode_names:
-        mode_payload = payload.get("modes", {}).get(mode_name)
-        if mode_payload:
-            combined.update(mode_payload.get("replacements", {}))
-
-    if not combined:
-        resolved = ({}, None)
-        _RESOLVED_TERMS_CACHE[mode_names] = resolved
-        return resolved
-
-    variants = sorted(combined, key=len, reverse=True)
-    pattern = re.compile(r"(?<!\w)(" + "|".join(re.escape(item) for item in variants) + r")(?!\w)", re.IGNORECASE)
-    resolved = (combined, pattern)
-    _RESOLVED_TERMS_CACHE[mode_names] = resolved
-    return resolved
+    return _TECHNICAL_TERMS_MANAGER.resolve_active_terms(active_modes=active_modes)
 
 
 def apply_technical_term_replacements(text, log_changes=False, active_modes=None):
-    normalized = " ".join((text or "").split())
-    if not normalized:
-        return ""
-
-    replacements, pattern = resolve_active_technical_terms(active_modes=active_modes)
-    if not replacements or pattern is None:
-        return normalized
-
-    def repl(match):
-        key = _runtime.normalize_name(match.group(0))
-        return replacements.get(key, match.group(0))
-
-    corrected = pattern.sub(repl, normalized)
-    if log_changes and corrected != normalized:
-        active = list(active_modes if active_modes is not None else get_active_technical_modes())
-        _runtime.LOGGER.info(
-            "Technical replacements applied. modes=%s before=%s after=%s",
-            active,
-            _runtime.short_text(normalized, 200),
-            _runtime.short_text(corrected, 200),
-        )
-    return corrected
+    return _TECHNICAL_TERMS_MANAGER.apply(
+        text,
+        log_changes=log_changes,
+        active_modes=active_modes,
+    )
 
 
 _runtime.default_technical_terms_payload = default_technical_terms_payload

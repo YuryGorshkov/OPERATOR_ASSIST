@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import queue
-import re
 import subprocess
 import sys
 import threading
@@ -20,6 +19,16 @@ from tkinter.scrolledtext import ScrolledText
 
 import sounddevice as sd
 from vosk import KaldiRecognizer, Model
+
+from operator_assist_runtime.technical_terms import (
+    TechnicalTermsManager,
+    serialize_terms_payload,
+)
+from operator_assist_runtime.text_utils import (
+    are_exact_duplicates as shared_are_exact_duplicates,
+    normalize_name as shared_normalize_name,
+    short_text as shared_short_text,
+)
 
 
 APP_TITLE = "OPERATOR_ASSIST Operator Assist"
@@ -51,21 +60,7 @@ def default_technical_terms_payload():
 
 
 def default_technical_terms_content():
-    return json.dumps(default_technical_terms_payload(), ensure_ascii=False, indent=2)
-
-
-_TECHNICAL_TERMS_CACHE_KEY = None
-_TECHNICAL_TERM_REPLACEMENTS = {}
-_TECHNICAL_TERM_PATTERN = None
-_TECHNICAL_TERMS_ENABLED = True
-
-
-def _technical_terms_cache_key():
-    try:
-        stat = TECHNICAL_TERMS_PATH.stat()
-        return (str(TECHNICAL_TERMS_PATH), stat.st_mtime_ns, stat.st_size)
-    except OSError:
-        return (str(TECHNICAL_TERMS_PATH), None, None)
+    return serialize_terms_payload(default_technical_terms_payload())
 
 
 def resolve_logs_dir():
@@ -236,92 +231,50 @@ def find_existing_models():
 
 
 def normalize_name(value):
-    return " ".join((value or "").strip().casefold().split())
+    return shared_normalize_name(value)
 
 
 def short_text(value, limit=220):
-    normalized = " ".join((value or "").split())
-    if len(normalized) <= limit:
-        return normalized
-    return normalized[: limit - 3] + "..."
+    return shared_short_text(value, limit=limit)
+
+
+_TECHNICAL_TERMS_MANAGER = TechnicalTermsManager(
+    get_terms_path=lambda: TECHNICAL_TERMS_PATH,
+    get_logger=lambda: LOGGER,
+    normalize_name=normalize_name,
+    short_text=short_text,
+    default_payload_factory=default_technical_terms_payload,
+)
 
 
 def load_technical_terms(force=False):
-    global _TECHNICAL_TERMS_CACHE_KEY, _TECHNICAL_TERM_REPLACEMENTS, _TECHNICAL_TERM_PATTERN, _TECHNICAL_TERMS_ENABLED
+    payload = _TECHNICAL_TERMS_MANAGER.load(force=force)
+    replacements, pattern = _TECHNICAL_TERMS_MANAGER.resolve_active_terms(active_modes=())
+    return payload.get("enabled", True), replacements, pattern
 
-    cache_key = _technical_terms_cache_key()
-    if not force and cache_key == _TECHNICAL_TERMS_CACHE_KEY:
-        return _TECHNICAL_TERMS_ENABLED, _TECHNICAL_TERM_REPLACEMENTS, _TECHNICAL_TERM_PATTERN
 
-    payload = default_technical_terms_payload()
-    source = "built-in defaults"
+def get_available_technical_modes():
+    return _TECHNICAL_TERMS_MANAGER.get_available_modes()
 
-    if TECHNICAL_TERMS_PATH.exists():
-        try:
-            loaded = json.loads(TECHNICAL_TERMS_PATH.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                payload = loaded
-                source = str(TECHNICAL_TERMS_PATH)
-            else:
-                raise ValueError("Technical terms file must contain a JSON object.")
-        except Exception:
-            LOGGER.exception("Failed to load technical terms from %s, using defaults", TECHNICAL_TERMS_PATH)
 
-    enabled = bool(payload.get("enabled", True))
-    raw_replacements = payload.get("replacements", {})
-    replacements = {}
+def set_active_technical_modes(modes):
+    return _TECHNICAL_TERMS_MANAGER.set_active_modes(modes)
 
-    if isinstance(raw_replacements, dict):
-        for raw_key, raw_value in raw_replacements.items():
-            key = normalize_name(raw_key)
-            value = " ".join(str(raw_value or "").split())
-            if key and value:
-                replacements[key] = value
 
-    pattern = None
-    if replacements:
-        variants = sorted(replacements, key=len, reverse=True)
-        pattern = re.compile(r"(?<!\w)(" + "|".join(re.escape(item) for item in variants) + r")(?!\w)", re.IGNORECASE)
+def get_active_technical_modes():
+    return _TECHNICAL_TERMS_MANAGER.get_active_modes()
 
-    _TECHNICAL_TERMS_CACHE_KEY = cache_key
-    _TECHNICAL_TERM_REPLACEMENTS = replacements
-    _TECHNICAL_TERM_PATTERN = pattern
-    _TECHNICAL_TERMS_ENABLED = enabled
 
-    LOGGER.info("Technical terms loaded. enabled=%s terms=%s source=%s", enabled, len(replacements), source)
-    return enabled, replacements, pattern
+def resolve_active_technical_terms(active_modes=None):
+    return _TECHNICAL_TERMS_MANAGER.resolve_active_terms(active_modes=active_modes)
 
 
 def apply_technical_term_replacements(text, log_changes=False):
-    normalized = " ".join((text or "").split())
-    if not normalized:
-        return ""
-
-    enabled, replacements, pattern = load_technical_terms()
-    if not enabled or not replacements or pattern is None:
-        return normalized
-
-    def repl(match):
-        key = normalize_name(match.group(0))
-        return replacements.get(key, match.group(0))
-
-    corrected = pattern.sub(repl, normalized)
-    if log_changes and corrected != normalized:
-        LOGGER.info("Technical replacements applied. before=%s after=%s", short_text(normalized, 200), short_text(corrected, 200))
-    return corrected
+    return _TECHNICAL_TERMS_MANAGER.apply(text, log_changes=log_changes, active_modes=())
 
 
 def are_exact_duplicates(left, right):
-    left_norm = normalize_name(left)
-    right_norm = normalize_name(right)
-
-    if not left_norm or not right_norm:
-        return False
-
-    if len(left_norm) < EXACT_DUPLICATE_MIN_CHARS or len(right_norm) < EXACT_DUPLICATE_MIN_CHARS:
-        return False
-
-    return left_norm == right_norm
+    return shared_are_exact_duplicates(left, right, min_chars=EXACT_DUPLICATE_MIN_CHARS)
 
 
 def find_chrome_exe():

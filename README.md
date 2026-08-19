@@ -79,7 +79,9 @@ OPERATOR_ASSIST/
 ├─ app/                               Browser prototypes (voice notes + speaker window)
 ├─ operator_assist_runtime/
 │  ├─ __init__.py
-│  └─ base_runtime.py
+│  ├─ base_runtime.py
+│  ├─ technical_terms.py
+│  └─ text_utils.py
 ├─ backups/
 │  └─ operator_assist_chat_bridge_base.py  Legacy compatibility shim
 ├─ docs/
@@ -88,7 +90,8 @@ OPERATOR_ASSIST/
 │  ├─ deployment.md
 │  └─ images/
 ├─ tests/
-│  └─ test_repository_contract.py
+│  ├─ test_repository_contract.py
+│  └─ test_technical_terms_manager.py
 ├─ scripts/
 │  ├─ Check-Environment.ps1
 │  ├─ paste_to_chat_window.vbs

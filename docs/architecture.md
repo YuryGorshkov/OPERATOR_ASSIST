@@ -30,6 +30,8 @@ Responsibilities:
 
 This module contains the core `TranscriptionWorker` and `OperatorAssistApp` abstractions.
 
+It now delegates smaller cross-cutting concerns to shared helpers under `operator_assist_runtime/`, so the recognition loop and UI orchestration are easier to review independently from text normalization details.
+
 For compatibility, the old path under `backups/operator_assist_chat_bridge_base.py` is retained as a shim while the repository transitions to the cleaner package layout.
 
 ### 2. Loopback-enabled Windows runtime
@@ -51,12 +53,24 @@ File: `operator_assist.py`
 
 Responsibilities:
 
-- load and cache `technical_terms.json`,
-- expose switchable IT-mode terminology replacement,
-- apply domain-specific normalization after recognition,
-- preserve the base dual-stream transcription UX.
+- activate the IT-mode terminology profile,
+- preserve the base dual-stream transcription UX,
+- layer operator-facing behavior on top of the shared technical-terms service.
 
 This keeps domain adaptation lightweight: no model retraining, just controlled post-processing.
+
+### Shared runtime helpers
+
+Files:
+
+- `operator_assist_runtime/technical_terms.py`
+- `operator_assist_runtime/text_utils.py`
+
+Responsibilities:
+
+- centralize technical-term caching and mode resolution,
+- reuse the same normalization service in both the base runtime and the IT wrapper,
+- keep small deterministic text helpers separately testable.
 
 ### 4. Chrome bridge experiment
 
