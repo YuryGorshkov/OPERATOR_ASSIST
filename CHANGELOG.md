@@ -4,7 +4,19 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
-Repository and product-polish work prepared after `v0.1.1`.
+Repository and product-polish work prepared after `v1.0.0`.
+
+## v1.0.0 - 2026-08-19
+
+First stable public milestone for `OPERATOR_ASSIST`.
+
+Highlights:
+
+- consolidated Windows delivery around portable and installer release assets
+- added guided first-launch readiness checks, diagnostics, and calmer startup behavior
+- added source-install bootstrap scripts for repeatable setup from Git on clean machines
+- improved deployment docs, smoke-check notes, and demo materials for public review
+- aligned branding, packaging, and release automation for consistent versioned builds
 
 ## v0.1.1 - 2026-08-19
 

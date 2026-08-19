@@ -283,7 +283,7 @@ Typical build outputs:
 - `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
 - `release/publish/SHA256SUMS.txt`
 
-Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v0.1.1` builds the Windows artifacts and publishes them to the matching GitHub Release.
+Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v1.0.0` builds the Windows artifacts and publishes them to the matching GitHub Release.
 
 ## Dependency Strategy
 

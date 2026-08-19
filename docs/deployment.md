@@ -161,7 +161,7 @@ The repository now includes a dedicated GitHub Actions release workflow:
 
 - `.github/workflows/release.yml`
 
-What it does on a tagged push like `v0.1.1`:
+What it does on a tagged push like `v1.0.0`:
 
 1. pins the runner to `windows-2025`,
 2. installs Python build dependencies,
@@ -176,7 +176,7 @@ Recommended release procedure:
 1. update `pyproject.toml` version,
 2. update `CHANGELOG.md`,
 3. commit the release preparation,
-4. create and push a matching tag like `v0.1.1`,
+4. create and push a matching tag like `v1.0.0`,
 5. let GitHub Actions build and attach the Windows assets automatically.
 
 ## Frozen Runtime Behavior
