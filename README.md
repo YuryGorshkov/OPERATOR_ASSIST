@@ -67,7 +67,7 @@ More detail: [docs/architecture.md](docs/architecture.md)
 | --- | --- | --- | --- |
 | Desktop operator assistant | `operator_assist.py` | Main product workflow with IT mode and dual transcription UX | Primary |
 | Desktop loopback wrapper | `operator_assist_chat_bridge_v5_base.py` | Adds WASAPI loopback capture and Windows audio source selection | Primary dependency |
-| Base runtime | `backups/operator_assist_chat_bridge_base.py` | Core recognition engine, UI queue, transcript handling, prompt builder | Primary dependency |
+| Base runtime | `operator_assist_runtime/base_runtime.py` | Core recognition engine, UI queue, transcript handling, prompt builder | Primary dependency |
 | Chrome bridge experiment | `operator_assist_chat_window_test.py` | Prompt injection into ChatGPT via Chrome remote debugging | Experimental |
 | Browser voice notes | `app/index.html` | Lightweight voice-note UI using Web Speech API | Prototype |
 | Browser speaker window | `app/speaker.html` | Lightweight speaker-text UI using Web Speech API | Prototype |
@@ -77,19 +77,25 @@ More detail: [docs/architecture.md](docs/architecture.md)
 ```text
 OPERATOR_ASSIST/
 ├─ app/                               Browser prototypes (voice notes + speaker window)
+├─ operator_assist_runtime/
+│  ├─ __init__.py
+│  └─ base_runtime.py
 ├─ backups/
-│  └─ operator_assist_chat_bridge_base.py
+│  └─ operator_assist_chat_bridge_base.py  Legacy compatibility shim
 ├─ docs/
 │  ├─ architecture.md
 │  ├─ case-study.md
 │  ├─ deployment.md
 │  └─ images/
+├─ tests/
+│  └─ test_repository_contract.py
 ├─ scripts/
 │  ├─ Check-Environment.ps1
 │  ├─ paste_to_chat_window.vbs
 │  └─ Serve-App-Tcp.ps1
 ├─ vendor/                            Vendored loopback dependencies for Windows runtime
 ├─ Run-Operator-Assist.ps1            Portable desktop launcher
+├─ pyproject.toml                     Packaging and project metadata
 ├─ operator_assist.py                 Top wrapper with IT-mode terminology layer
 ├─ operator_assist_chat_bridge_v5_base.py
 ├─ operator_assist_chat_window_test.py
@@ -97,7 +103,7 @@ OPERATOR_ASSIST/
 └─ technical_terms.json
 ```
 
-Note: despite the filename, `backups/operator_assist_chat_bridge_base.py` is not archival trash. It is the active base runtime module used by the layered wrappers.
+The canonical base runtime now lives in `operator_assist_runtime/base_runtime.py`. The file under `backups/` is intentionally retained only as a compatibility shim for older local entry points.
 
 ## Tech Stack
 
@@ -165,6 +171,12 @@ Then open:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
+### 7. Run repository checks
+
+```bash
+python -m unittest discover -s tests
+```
+
 ## Dependency Strategy
 
 This repository uses a mixed dependency model on purpose:
@@ -210,7 +222,7 @@ The repository does not force one interface to solve every scenario. It includes
 - Windows-first implementation for the primary desktop mode.
 - There is still no fully packaged installer with embedded runtime.
 - The Chrome bridge is experimental and should be treated as an optional workflow, not the default.
-- There is no automated test suite yet.
+- Quality checks exist, but the test layer is still minimal and does not yet cover real audio fixtures.
 - The repository is optimized for practical usage and iteration speed, not for library-style packaging purity.
 
 ## What I Would Do Next For Production

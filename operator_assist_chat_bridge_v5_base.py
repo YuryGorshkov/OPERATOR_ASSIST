@@ -75,9 +75,26 @@ def rebind_environment():
             pass
 
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(threadName)s %(message)s")
-    file_handler = logging.FileHandler(runtime.LOG_PATH, encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    handler = None
+    temp_root = Path(runtime.os.environ.get("TEMP") or runtime.os.environ.get("TMP") or "C:\\tmp")
+    fallback_dir = temp_root / "OPERATOR_ASSIST_logs"
+    fallback_path = fallback_dir / f"operator_assist_{runtime.RUN_TIMESTAMP}.log"
+
+    for candidate_path in (runtime.LOG_PATH, fallback_path):
+        try:
+            candidate_path.parent.mkdir(parents=True, exist_ok=True)
+            handler = logging.FileHandler(candidate_path, encoding="utf-8")
+            runtime.LOGS_DIR = candidate_path.parent
+            runtime.LOG_PATH = candidate_path
+            break
+        except Exception:
+            continue
+
+    if handler is None:
+        handler = logging.NullHandler()
+
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     logger.propagate = False
 
     runtime.ensure_text_file(runtime.BRIDGE_SCRIPT_PATH, runtime.bridge_script_content())

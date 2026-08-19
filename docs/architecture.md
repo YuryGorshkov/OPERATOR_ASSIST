@@ -15,7 +15,7 @@ That framing drives the architecture more than raw ML ambition.
 
 ### 1. Base desktop runtime
 
-File: `backups/operator_assist_chat_bridge_base.py`
+File: `operator_assist_runtime/base_runtime.py`
 
 Responsibilities:
 
@@ -29,6 +29,8 @@ Responsibilities:
 - clipboard or Chrome handoff helpers
 
 This module contains the core `TranscriptionWorker` and `OperatorAssistApp` abstractions.
+
+For compatibility, the old path under `backups/operator_assist_chat_bridge_base.py` is retained as a shim while the repository transitions to the cleaner package layout.
 
 ### 2. Loopback-enabled Windows runtime
 

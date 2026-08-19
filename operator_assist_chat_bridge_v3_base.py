@@ -7,6 +7,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-07-09-chat3"
 CURRENT_DIR = Path(__file__).resolve().parent
 BASE_SCRIPT_CANDIDATES = [
+    CURRENT_DIR / "operator_assist_runtime" / "base_runtime.py",
     CURRENT_DIR / "backups" / "operator_assist_chat_bridge_base.py",
     CURRENT_DIR / "operator_assist_chat_bridge.py",
 ]
@@ -53,9 +54,26 @@ def rebind_base_environment():
             pass
 
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(threadName)s %(message)s")
-    file_handler = logging.FileHandler(_base.LOG_PATH, encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    handler = None
+    temp_root = Path(_base.os.environ.get("TEMP") or _base.os.environ.get("TMP") or "C:\\tmp")
+    fallback_dir = temp_root / "OPERATOR_ASSIST_logs"
+    fallback_path = fallback_dir / f"operator_assist_{_base.RUN_TIMESTAMP}.log"
+
+    for candidate_path in (_base.LOG_PATH, fallback_path):
+        try:
+            candidate_path.parent.mkdir(parents=True, exist_ok=True)
+            handler = logging.FileHandler(candidate_path, encoding="utf-8")
+            _base.LOGS_DIR = candidate_path.parent
+            _base.LOG_PATH = candidate_path
+            break
+        except Exception:
+            continue
+
+    if handler is None:
+        handler = logging.NullHandler()
+
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     logger.propagate = False
 
     _base.ensure_text_file(_base.BRIDGE_SCRIPT_PATH, _base.bridge_script_content())

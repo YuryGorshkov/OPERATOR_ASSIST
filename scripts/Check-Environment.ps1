@@ -84,6 +84,7 @@ if ($null -eq $python) {
 $requiredFiles = @(
     "operator_assist.py",
     "operator_assist_chat_bridge_v5_base.py",
+    "operator_assist_runtime\base_runtime.py",
     "backups\operator_assist_chat_bridge_base.py",
     "technical_terms.json",
     "scripts\Serve-App-Tcp.ps1",
