@@ -80,10 +80,12 @@ class RepositoryContractTests(unittest.TestCase):
         expected_files = [
             PROJECT_ROOT / "docs" / "architecture.md",
             PROJECT_ROOT / "docs" / "case-study.md",
+            PROJECT_ROOT / "docs" / "demo-script.md",
             PROJECT_ROOT / "docs" / "deployment.md",
             PROJECT_ROOT / "docs" / "first-launch.md",
             PROJECT_ROOT / "docs" / "install-from-release.md",
             PROJECT_ROOT / "docs" / "known-issues.md",
+            PROJECT_ROOT / "docs" / "smoke-checklist.md",
         ]
 
         missing = [str(path) for path in expected_files if not path.exists()]

@@ -331,9 +331,11 @@ The repository does not force one interface to solve every scenario. It includes
 - [Architecture notes](docs/architecture.md)
 - [Case study](docs/case-study.md)
 - [Deployment and packaging notes](docs/deployment.md)
+- [Demo script](docs/demo-script.md)
 - [First launch guide](docs/first-launch.md)
 - [Install from packaged release](docs/install-from-release.md)
 - [Known issues](docs/known-issues.md)
+- [Smoke checklist for another PC](docs/smoke-checklist.md)
 
 ## Project Positioning
 

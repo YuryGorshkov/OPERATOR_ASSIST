@@ -25,6 +25,11 @@ from operator_assist_runtime.technical_terms import (
     serialize_terms_payload,
 )
 from operator_assist_runtime.runtime_paths import application_root
+from operator_assist_runtime.audio_diagnostics import (
+    SIGNAL_LIVE_THRESHOLD,
+    build_route_diagnostic_message,
+    describe_signal_state,
+)
 from operator_assist_runtime.startup_readiness import build_startup_summary
 from operator_assist_runtime.text_utils import (
     are_exact_duplicates as shared_are_exact_duplicates,
@@ -579,6 +584,8 @@ class OperatorAssistApp:
         self.route_diag_var = tk.StringVar(
             value="Диагностика: выберите источники и дождитесь загрузки модели."
         )
+        self.audio_session_started_at = 0.0
+        self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.last_overlap_warning_at = 0.0
         self.recent_mic_finals = deque()
@@ -1081,21 +1088,21 @@ class OperatorAssistApp:
 
         mic_info = self._selected_mic_source_info()
         speaker_info = self._selected_speaker_source_info()
-
-        if self.workers:
-            self.route_diag_var.set(
-                "Маршрут активен: "
-                f"оператор -> {mic_info.get('mode_label', 'вход')}; "
-                f"собеседник -> {speaker_info.get('mode_label', 'вход')}. "
-                "Если одинаковые фразы попадают в обе колонки, проверьте выбор источников."
-            )
-            return
+        seconds_since_start = 0.0
+        if self.audio_session_started_at > 0:
+            seconds_since_start = max(0.0, time.monotonic() - self.audio_session_started_at)
 
         self.route_diag_var.set(
-            "Маршрут выбран: "
-            f"оператор -> {mic_info.get('mode_label', 'вход')}; "
-            f"собеседник -> {speaker_info.get('mode_label', 'вход')}. "
-            "После старта следите за уровнями сигнала ниже."
+            build_route_diagnostic_message(
+                workers_active=bool(self.workers),
+                mic_mode_label=mic_info.get("mode_label", "вход"),
+                speaker_mode_label=speaker_info.get("mode_label", "вход"),
+                mic_selected=bool((self.mic_device_var.get() or "").strip()),
+                speaker_selected=bool((self.speaker_device_var.get() or "").strip()),
+                mic_has_live_signal=bool(self.channel_live_signal_seen.get("me")),
+                speaker_has_live_signal=bool(self.channel_live_signal_seen.get("speaker")),
+                seconds_since_start=seconds_since_start,
+            )
         )
 
     def _refresh_audio_diagnostics(self):
@@ -1111,6 +1118,8 @@ class OperatorAssistApp:
         self.speaker_level_var.set(0)
         self.mic_signal_var.set("Сигнал: тишина")
         self.speaker_signal_var.set("Сигнал: тишина")
+        self.audio_session_started_at = 0.0
+        self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.last_overlap_warning_at = 0.0
         self._set_route_diag_message()
@@ -1126,15 +1135,13 @@ class OperatorAssistApp:
             signal_var = self.speaker_signal_var
 
         level_var.set(level_percent)
-        if level_percent >= 60:
-            state_text = "сильный"
-        elif level_percent >= 25:
-            state_text = "есть"
-        elif level_percent >= 8:
-            state_text = "слабый"
-        else:
-            state_text = "тишина"
+        if level_percent >= SIGNAL_LIVE_THRESHOLD:
+            self.channel_live_signal_seen[label] = True
+
+        state_text = describe_signal_state(level_percent)
         signal_var.set(f"Сигнал: {state_text} ({level_percent}%)")
+        if not self.channel_overlap_warning_active:
+            self._set_route_diag_message()
 
     def _remember_recent_final(self, bucket, text, event_time):
         cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
@@ -1378,6 +1385,8 @@ class OperatorAssistApp:
 
         self.status_var.set("Идет одновременное распознавание")
         self.hint_var.set(f"Активная модель: {self._current_model_name()}. Блок ChatGPT работает отдельно и не мешает распознаванию.")
+        self.audio_session_started_at = time.monotonic()
+        self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()

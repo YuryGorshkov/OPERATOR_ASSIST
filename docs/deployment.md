@@ -198,6 +198,8 @@ To reduce friction, the desktop runtime now includes:
 
 More detail: [First launch guide](first-launch.md)
 Packaged-app walkthrough: [Install from release](install-from-release.md)
+Live showcase helper: [Demo script](demo-script.md)
+Cross-machine verification: [Smoke checklist](smoke-checklist.md)
 
 ## Recommended Demo Setup
 
