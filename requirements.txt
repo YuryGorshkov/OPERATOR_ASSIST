@@ -1,0 +1,13 @@
+# Core desktop runtime
+vosk==0.3.45
+sounddevice==0.5.5
+
+# Browser / Chrome bridge experiment
+websockets==16.0
+
+# WASAPI loopback stack
+# These packages are also vendored under vendor/ for easier Windows portability.
+numpy==2.2.6
+soundcard==0.4.6
+cffi==2.0.0
+pycparser==3.0
