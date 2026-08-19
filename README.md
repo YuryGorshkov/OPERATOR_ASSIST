@@ -31,6 +31,14 @@ Desktop UI is currently Russian-first. Repository documentation is English-first
 - It uses an explicit post-processing layer for technical terminology instead of pretending raw STT output is always good enough.
 - It keeps large runtime assets and local operator data out of git, which is closer to how a real desktop tool is maintained.
 
+## What This Demonstrates
+
+- Desktop product thinking instead of script-only automation.
+- Pragmatic Windows audio engineering with multiple fallback paths.
+- Incremental architecture cleanup from legacy wrappers toward shared runtime services.
+- Public-repo hardening: packaging pipeline, release artifacts, tests, and documentation.
+- Honest scope control: stable workflow separated from experimental AI handoff features.
+
 ## Core Capabilities
 
 - Simultaneous transcription of microphone audio and speaker/system audio into separate panels.
