@@ -19,6 +19,19 @@ function Write-CheckResult {
 }
 
 function Find-PythonConsole {
+    $projectCandidates = @(
+        (Join-Path $projectRoot ".venv\Scripts\python.exe")
+    )
+
+    foreach ($candidatePath in $projectCandidates) {
+        if ($candidatePath -and (Test-Path -LiteralPath $candidatePath)) {
+            return @{
+                FilePath = $candidatePath
+                ArgumentPrefix = @()
+            }
+        }
+    }
+
     $candidatePaths = @(
         (Join-Path $env:LOCALAPPDATA "Programs\Python\Python310\python.exe"),
         (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe"),
@@ -88,8 +101,10 @@ $requiredFiles = @(
     "backups\operator_assist_chat_bridge_base.py",
     "technical_terms.json",
     "scripts\Serve-App-Tcp.ps1",
+    "scripts\Setup-From-Git.ps1",
     "Run-Operator-Assist.cmd",
-    "Run-Operator-Assist.ps1"
+    "Run-Operator-Assist.ps1",
+    "Setup-From-Git.cmd"
 )
 
 foreach ($relativePath in $requiredFiles) {

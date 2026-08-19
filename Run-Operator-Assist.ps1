@@ -6,6 +6,8 @@ $targetScript = Join-Path $scriptDir "operator_assist.py"
 
 function Find-PythonLauncher {
     $candidatePaths = @(
+        (Join-Path $scriptDir ".venv\Scripts\pythonw.exe"),
+        (Join-Path $scriptDir ".venv\Scripts\python.exe"),
         (Join-Path $env:LOCALAPPDATA "Programs\Python\Python310\pythonw.exe"),
         (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\pythonw.exe"),
         (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\pythonw.exe"),
@@ -48,7 +50,7 @@ if (-not (Test-Path -LiteralPath $targetScript -PathType Leaf)) {
 
 $launcher = Find-PythonLauncher
 if ($null -eq $launcher) {
-    throw "Python launcher was not found. Install Python 3.10+ or adjust Run-Operator-Assist.ps1."
+    throw "Python launcher was not found. Install Python 3.10+ or run Setup-From-Git.cmd first."
 }
 
 $argumentList = @($launcher.ArgumentList + @($targetScript))

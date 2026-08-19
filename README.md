@@ -164,13 +164,30 @@ More detail: [Install from release](docs/install-from-release.md)
 
 The desktop runtime was developed against Python `3.10.x`.
 
-### 2. Install dependencies
+### 2. Clone the repository
 
-```bash
-pip install -r requirements.txt
+```powershell
+git clone https://github.com/YuryGorshkov/OPERATOR_ASSIST.git
+cd OPERATOR_ASSIST
 ```
 
-### 3. Add a Vosk model
+### 3. Run the source setup helper
+
+Recommended Windows bootstrap:
+
+```text
+Setup-From-Git.cmd
+```
+
+Equivalent PowerShell command:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup-From-Git.ps1
+```
+
+This setup creates a project-local `.venv`, installs dependencies, prepares local folders, and runs a preflight check.
+
+### 4. Add a Vosk model
 
 Place one supported Russian model under the local `models/` directory. The runtime checks these paths:
 
@@ -180,7 +197,7 @@ Place one supported Russian model under the local `models/` directory. The runti
 
 Speech models are intentionally excluded from git because they are large runtime assets, not source code.
 
-### 4. Launch the main desktop app
+### 5. Launch the main desktop app
 
 Windows launcher:
 
@@ -194,7 +211,7 @@ Main Python entry point:
 python operator_assist.py
 ```
 
-### 5. First launch behavior
+### 6. First launch behavior
 
 If the app cannot find a speech model yet, it now shows a readiness block instead of relying only on immediate modal errors.
 
@@ -206,8 +223,9 @@ Use the in-app buttons to:
 - confirm microphone and caller/system-audio routing before pressing `Старт`.
 
 More detail: [First launch guide](docs/first-launch.md)
+Source setup detail: [Install from git](docs/install-from-git.md)
 
-### 6. Launch the browser prototypes
+### 7. Launch the browser prototypes
 
 Serve the local `app/` directory with the included PowerShell server:
 
@@ -220,13 +238,13 @@ Then open:
 - `http://127.0.0.1:8765/`
 - `http://127.0.0.1:8765/speaker.html`
 
-### 7. Run a preflight check
+### 8. Run a preflight check
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-### 8. Run repository checks
+### 9. Run repository checks
 
 ```bash
 python -m unittest discover -s tests
@@ -330,6 +348,7 @@ The repository does not force one interface to solve every scenario. It includes
 
 - [Architecture notes](docs/architecture.md)
 - [Case study](docs/case-study.md)
+- [Install from git repository](docs/install-from-git.md)
 - [Deployment and packaging notes](docs/deployment.md)
 - [Demo script](docs/demo-script.md)
 - [First launch guide](docs/first-launch.md)

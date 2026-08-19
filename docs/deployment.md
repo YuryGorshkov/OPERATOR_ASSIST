@@ -21,6 +21,14 @@ Install from:
 pip install -r requirements.txt
 ```
 
+For a smoother source bootstrap on a fresh Windows machine, prefer the dedicated helper:
+
+```text
+Setup-From-Git.cmd
+```
+
+More detail: [Install from git](install-from-git.md)
+
 The project uses a mixed dependency model:
 
 - environment-installed packages for the core runtime,
