@@ -24,6 +24,7 @@ from operator_assist_runtime.technical_terms import (
     TechnicalTermsManager,
     serialize_terms_payload,
 )
+from operator_assist_runtime.runtime_paths import application_root
 from operator_assist_runtime.text_utils import (
     are_exact_duplicates as shared_are_exact_duplicates,
     normalize_name as shared_normalize_name,
@@ -33,7 +34,7 @@ from operator_assist_runtime.text_utils import (
 
 APP_TITLE = "OPERATOR_ASSIST Operator Assist"
 APP_VERSION = "2026-07-09-chat1"
-BASE_DIR = Path(__file__).resolve().parents[1]
+BASE_DIR = application_root(__file__, levels_up=1)
 SETTINGS_PATH = BASE_DIR / "operator_assist_settings.json"
 TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 PROMPT_TEMPLATE_PATH = BASE_DIR / "chatgpt_prompt_template.txt"

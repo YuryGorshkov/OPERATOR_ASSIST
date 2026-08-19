@@ -1,12 +1,14 @@
 ﻿# -*- coding: utf-8 -*-
 import asyncio
+import importlib
 import importlib.util
 import json
 import subprocess
 import time
-from pathlib import Path
 from urllib import error as urllib_error
 from urllib import request as urllib_request
+
+from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
 
 try:
     import websockets
@@ -20,9 +22,10 @@ except Exception as error:
 
 
 WRAPPER_VERSION = "2026-07-14-chrome-bridge-test"
-CURRENT_DIR = Path(__file__).resolve().parent
+CURRENT_DIR = application_root(__file__)
+BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
-    CURRENT_DIR / "operator_assist.py",
+    BUNDLE_DIR / "operator_assist.py",
 ]
 CHROME_BRIDGE_PORT = 9333
 CHROME_BRIDGE_BASE_URL = f"http://127.0.0.1:{CHROME_BRIDGE_PORT}"
@@ -31,6 +34,12 @@ CHATGPT_HOST_MARKERS = ("chatgpt.com", "chat.openai.com")
 
 
 def load_base_module():
+    if is_frozen():
+        return (
+            importlib.import_module("operator_assist"),
+            BUNDLE_DIR / "operator_assist.py",
+        )
+
     for candidate in BASE_SCRIPT_CANDIDATES:
         if not candidate.exists():
             continue

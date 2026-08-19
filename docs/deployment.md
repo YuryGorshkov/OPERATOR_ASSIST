@@ -100,15 +100,55 @@ The following are intentionally excluded from version control:
 
 This protects the repository from being polluted with runtime noise and large artifacts.
 
-## Packaging Direction
+## Packaging Workflow
 
-For a stronger distribution story, the likely next packaging path would be:
+The repository now contains a committed Windows release path:
 
-1. freeze the desktop app with PyInstaller,
-2. ship a clean runtime bundle,
-3. optionally wrap with Inno Setup or a similar Windows installer.
+- PyInstaller spec: `packaging/pyinstaller/operator_assist.spec`
+- Inno Setup script: `packaging/inno/OperatorAssist.iss`
+- release orchestration: `scripts/Build-Release.ps1`
 
-The repository already contains signs of packaging experimentation (`_packaging_test/` locally), but the committed source is intentionally kept focused on the working app and its dependencies.
+Install build-time tooling:
+
+```bash
+pip install .[build]
+```
+
+Build the release:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
+```
+
+By default the script:
+
+1. runs `python -m unittest discover -s tests`,
+2. builds a PyInstaller one-folder bundle,
+3. assembles `release/portable/OPERATOR_ASSIST`,
+4. writes a small `BUILD_INFO.txt`,
+5. creates a portable zip archive,
+6. tries to build an Inno Setup installer when `ISCC.exe` is available.
+
+Useful switches:
+
+- `-SkipTests`
+- `-SkipZip`
+- `-SkipInstaller`
+- `-NoClean`
+
+## Frozen Runtime Behavior
+
+The runtime now separates:
+
+- the bundle directory used by frozen Python modules,
+- the application directory next to the executable where editable and writable files live.
+
+That keeps the packaged app aligned with the existing product behavior:
+
+- `technical_terms.json` stays editable,
+- `chatgpt_prompt_template.txt` stays editable,
+- `models/` stays external,
+- `logs/` and `transcripts/` stay writable next to the executable.
 
 ## Recommended Demo Setup
 

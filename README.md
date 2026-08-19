@@ -80,6 +80,7 @@ OPERATOR_ASSIST/
 ├─ operator_assist_runtime/
 │  ├─ __init__.py
 │  ├─ base_runtime.py
+│  ├─ runtime_paths.py
 │  ├─ technical_terms.py
 │  └─ text_utils.py
 ├─ backups/
@@ -89,10 +90,17 @@ OPERATOR_ASSIST/
 │  ├─ case-study.md
 │  ├─ deployment.md
 │  └─ images/
+├─ packaging/
+│  ├─ inno/
+│  │  └─ OperatorAssist.iss
+│  └─ pyinstaller/
+│     └─ operator_assist.spec
 ├─ tests/
 │  ├─ test_repository_contract.py
+│  ├─ test_runtime_paths.py
 │  └─ test_technical_terms_manager.py
 ├─ scripts/
+│  ├─ Build-Release.ps1
 │  ├─ Check-Environment.ps1
 │  ├─ paste_to_chat_window.vbs
 │  └─ Serve-App-Tcp.ps1
@@ -179,6 +187,30 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Release Packaging
+
+The repository now includes a committed Windows packaging workflow rather than only ad-hoc launchers.
+
+Install build-time tooling:
+
+```bash
+pip install .[build]
+```
+
+Build a release bundle:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
+```
+
+By default this:
+
+- runs the repository tests,
+- builds a PyInstaller one-folder bundle,
+- assembles a portable release under `release/portable/OPERATOR_ASSIST`,
+- creates a portable `.zip`,
+- attempts an Inno Setup installer build if `ISCC.exe` is installed locally.
 
 ## Dependency Strategy
 

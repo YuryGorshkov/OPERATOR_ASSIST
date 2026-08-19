@@ -1,16 +1,20 @@
+import importlib
 import importlib.util
 import logging
 import sys
 from datetime import datetime
 from pathlib import Path
 
+from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
 
 WRAPPER_VERSION = "2026-07-09-chat5"
-CURRENT_DIR = Path(__file__).resolve().parent
+CURRENT_DIR = application_root(__file__)
+BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
-    CURRENT_DIR / "operator_assist_chat_bridge_v3_base.py",
+    BUNDLE_DIR / "operator_assist_chat_bridge_v3_base.py",
 ]
 VENDOR_CANDIDATES = [
+    BUNDLE_DIR / "vendor",
     CURRENT_DIR / "vendor",
 ]
 
@@ -34,6 +38,12 @@ except Exception as error:
 
 
 def load_base_module():
+    if is_frozen():
+        return (
+            importlib.import_module("operator_assist_chat_bridge_v3_base"),
+            BUNDLE_DIR / "operator_assist_chat_bridge_v3_base.py",
+        )
+
     for candidate in BASE_SCRIPT_CANDIDATES:
         if not candidate.exists():
             continue

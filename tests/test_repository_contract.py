@@ -47,6 +47,19 @@ class RepositoryContractTests(unittest.TestCase):
         pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn('name = "operator-assist"', pyproject)
         self.assertIn('Repository = "https://github.com/YuryGorshkov/OPERATOR_ASSIST"', pyproject)
+        self.assertIn('[project.optional-dependencies]', pyproject)
+        self.assertIn('"pyinstaller>=6.10,<7"', pyproject)
+
+    def test_packaging_assets_exist(self):
+        expected_files = [
+            PROJECT_ROOT / "packaging" / "pyinstaller" / "operator_assist.spec",
+            PROJECT_ROOT / "packaging" / "inno" / "OperatorAssist.iss",
+            PROJECT_ROOT / "scripts" / "Build-Release.ps1",
+            PROJECT_ROOT / "operator_assist_runtime" / "runtime_paths.py",
+        ]
+
+        missing = [str(path) for path in expected_files if not path.exists()]
+        self.assertEqual([], missing, f"Missing packaging assets: {missing}")
 
 
 if __name__ == "__main__":

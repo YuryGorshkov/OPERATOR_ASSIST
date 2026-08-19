@@ -14,6 +14,7 @@ operator_assist_settings.json
 _packaging_test/
 build/
 dist/
+release/
 
 # Large local-only speech models
 models/
