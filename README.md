@@ -1,5 +1,6 @@
 # OPERATOR_ASSIST
 
+[![CI](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml/badge.svg)](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml)
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3.10-3776AB?logo=python&logoColor=white)
 ![Speech](https://img.shields.io/badge/STT-Vosk%20offline-2EA44F)
@@ -85,12 +86,16 @@ More detail: [docs/architecture.md](docs/architecture.md)
 
 ```text
 OPERATOR_ASSIST/
+├─ .github/
+│  └─ workflows/
+│     └─ ci.yml                     GitHub Actions validation for syntax and lightweight tests
 ├─ app/                               Browser prototypes (voice notes + speaker window)
 ├─ assets/                            App icon and logo assets used by runtime and packaging
 ├─ operator_assist_runtime/
 │  ├─ __init__.py
 │  ├─ base_runtime.py
 │  ├─ runtime_paths.py
+│  ├─ startup_readiness.py
 │  ├─ technical_terms.py
 │  └─ text_utils.py
 ├─ backups/

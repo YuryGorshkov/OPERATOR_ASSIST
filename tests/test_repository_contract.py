@@ -52,6 +52,7 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_packaging_assets_exist(self):
         expected_files = [
+            PROJECT_ROOT / ".github" / "workflows" / "ci.yml",
             PROJECT_ROOT / "packaging" / "pyinstaller" / "operator_assist.spec",
             PROJECT_ROOT / "packaging" / "inno" / "OperatorAssist.iss",
             PROJECT_ROOT / "scripts" / "Build-Release.ps1",

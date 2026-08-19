@@ -1,6 +1,6 @@
 import unittest
 
-from operator_assist_runtime.base_runtime import build_startup_summary
+from operator_assist_runtime.startup_readiness import build_startup_summary
 
 
 class StartupSummaryTests(unittest.TestCase):
