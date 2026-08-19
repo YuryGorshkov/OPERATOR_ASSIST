@@ -8,7 +8,6 @@ WRAPPER_VERSION = "2026-07-14-it-mode1"
 CURRENT_DIR = Path(__file__).resolve().parent
 BASE_SCRIPT_CANDIDATES = [
     CURRENT_DIR / "operator_assist_chat_bridge_v5_base.py",
-    Path("D:/OPERATOR_ASSIST/operator_assist_chat_bridge_v5_base.py"),
 ]
 
 

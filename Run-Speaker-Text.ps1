@@ -26,7 +26,9 @@ function Get-BrowserPath {
         "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
         "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
         "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        "C:\\Users\\79615\\AppData\\Local\\Programs\\Opera\\opera.exe"
+        (Join-Path $env:LOCALAPPDATA "Programs\\Opera\\opera.exe"),
+        (Join-Path $env:ProgramFiles "BraveSoftware\\Brave-Browser\\Application\\brave.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "BraveSoftware\\Brave-Browser\\Application\\brave.exe")
     )
 
     foreach ($candidate in $candidates) {

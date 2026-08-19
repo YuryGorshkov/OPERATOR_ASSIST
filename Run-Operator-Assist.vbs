@@ -1,5 +1,6 @@
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
-pythonw = "C:\Users\79615\AppData\Local\Programs\Python\Python310\pythonw.exe"
-shell.Run """" & pythonw & """ """ & scriptDir & "\operator_assist.py""", 0, False
+launcher = fso.BuildPath(scriptDir, "Run-Operator-Assist.ps1")
+command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File """ & launcher & """"
+shell.Run command, 0, False

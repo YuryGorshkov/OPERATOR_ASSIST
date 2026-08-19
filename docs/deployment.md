@@ -47,13 +47,30 @@ For a portfolio repository, excluding these models is the correct trade-off:
 Current launchers include:
 
 - `Run-Operator-Assist.cmd`
+- `Run-Operator-Assist.ps1`
 - `Run-VoiceNotes.cmd`
 - `Run-Speaker-Text.cmd`
 - corresponding `.vbs` wrappers
 
-Important limitation:
+Current status:
 
-Some launchers currently reference a specific local Python installation path. That is acceptable for a practical personal tool, but it is not yet the final packaging story.
+The main operator launcher now resolves Python more defensively instead of hardcoding one user-specific path. This is a meaningful improvement for portability, although it is still not the same as a packaged installer.
+
+## Preflight Check
+
+The repository includes a local environment validation script:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
+```
+
+It verifies:
+
+- presence of a usable Python runtime,
+- presence of key source files,
+- visible Vosk model directories,
+- vendored loopback dependencies,
+- critical Python packages for the desktop runtime.
 
 ## Browser Prototype Hosting
 

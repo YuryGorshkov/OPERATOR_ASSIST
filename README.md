@@ -81,12 +81,15 @@ OPERATOR_ASSIST/
 │  └─ operator_assist_chat_bridge_base.py
 ├─ docs/
 │  ├─ architecture.md
+│  ├─ case-study.md
 │  ├─ deployment.md
 │  └─ images/
 ├─ scripts/
+│  ├─ Check-Environment.ps1
 │  ├─ paste_to_chat_window.vbs
 │  └─ Serve-App-Tcp.ps1
 ├─ vendor/                            Vendored loopback dependencies for Windows runtime
+├─ Run-Operator-Assist.ps1            Portable desktop launcher
 ├─ operator_assist.py                 Top wrapper with IT-mode terminology layer
 ├─ operator_assist_chat_bridge_v5_base.py
 ├─ operator_assist_chat_window_test.py
@@ -156,6 +159,12 @@ Then open:
 - `http://127.0.0.1:8765/`
 - `http://127.0.0.1:8765/speaker.html`
 
+### 6. Run a preflight check
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
+```
+
 ## Dependency Strategy
 
 This repository uses a mixed dependency model on purpose:
@@ -199,14 +208,14 @@ The repository does not force one interface to solve every scenario. It includes
 ## Current Constraints
 
 - Windows-first implementation for the primary desktop mode.
-- The desktop launchers currently assume a local Python installation path and are not yet fully environment-agnostic.
+- There is still no fully packaged installer with embedded runtime.
 - The Chrome bridge is experimental and should be treated as an optional workflow, not the default.
 - There is no automated test suite yet.
 - The repository is optimized for practical usage and iteration speed, not for library-style packaging purity.
 
 ## What I Would Do Next For Production
 
-- Replace path-specific launchers with a packaged installer or embedded runtime.
+- Ship a packaged installer or embedded runtime for zero-setup distribution.
 - Add automated audio-fixture regression tests for transcription and post-processing.
 - Introduce VAD or diarization to reduce noise and cross-talk.
 - Move prompt engineering into configurable profiles instead of hard-coded workflow assumptions.
@@ -216,6 +225,7 @@ The repository does not force one interface to solve every scenario. It includes
 ## Additional Documentation
 
 - [Architecture notes](docs/architecture.md)
+- [Case study](docs/case-study.md)
 - [Deployment and packaging notes](docs/deployment.md)
 
 ## Portfolio Framing
