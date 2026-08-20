@@ -6,6 +6,12 @@ All notable repository-facing changes are documented here.
 
 Repository and product-polish work prepared after `v1.0.1`.
 
+Highlights:
+
+- refreshed the public-facing `README` to present the repository as a product-oriented engineering project
+- removed portfolio-oriented wording from showcase documents in favor of a cleaner technical-review tone
+- aligned repository-facing documentation with the packaged-install structure introduced in `v1.0.1`
+
 ## v1.0.1 - 2026-08-20
 
 Packaged-install cleanup release.

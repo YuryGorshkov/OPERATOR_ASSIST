@@ -1,6 +1,6 @@
 # Demo Script
 
-This script is meant for a short technical walkthrough of `OPERATOR_ASSIST` in an interview, portfolio review, or live product demo.
+This script is meant for a short technical walkthrough of `OPERATOR_ASSIST` in an interview, architecture review, or live product demo.
 
 ## What To Open In Advance
 

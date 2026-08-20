@@ -1,56 +1,63 @@
 # OPERATOR_ASSIST
 
+<p align="center">
+  <img src="assets/logo-enot-256.png" alt="OPERATOR_ASSIST logo" width="128">
+</p>
+
 [![CI](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml/badge.svg)](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml)
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3.10-3776AB?logo=python&logoColor=white)
 ![Speech](https://img.shields.io/badge/STT-Vosk%20offline-2EA44F)
 ![Audio](https://img.shields.io/badge/audio-WASAPI%20loopback%20%2F%20Stereo%20Mix-8A2BE2)
-![UI](https://img.shields.io/badge/UI-Tkinter%20%2B%20browser%20prototypes-F59E0B)
+![UI](https://img.shields.io/badge/UI-Tkinter%20desktop-F59E0B)
 
-Windows-first real-time speech tooling for operator workflows, voice note capture, and AI-assisted prompt preparation.
+Windows-first desktop assistant for dual-stream transcription: one channel for the operator microphone, one channel for caller or system audio, with offline Russian speech recognition, transcript export, and optional AI handoff tooling.
 
-`OPERATOR_ASSIST` is a product-style repository built around a practical problem: splitting speech streams in live conversations, transcribing them with local Russian speech recognition, and turning the result into something an operator can immediately use.
+## At A Glance
 
-The project combines:
+| Area | Current implementation | Status |
+| --- | --- | --- |
+| Desktop runtime | Tkinter app with separate operator and speaker panes | Primary |
+| Audio capture | Microphone plus WASAPI loopback or fallback recording input | Primary |
+| Speech recognition | Local Vosk models for Russian speech | Primary |
+| Prompt handoff | Copy/export workflow plus optional Chrome injection experiment | Optional |
+| Browser surfaces | Voice notes and single-stream speaker prototypes | Prototype |
+| Distribution | Portable zip, installer build, GitHub Releases, CI | Available |
 
-- a native desktop runtime for dual-stream transcription,
-- a domain-specific technical-term correction layer,
-- an experimental ChatGPT/Chrome bridge,
-- browser-based voice note and speaker-text prototypes for lighter use cases.
+## Repository Overview
 
-Desktop UI is currently Russian-first. Repository documentation is English-first so the project is easier to review in a public repository.
+`OPERATOR_ASSIST` was built around a practical Windows workflow problem:
+
+- the operator speaks into a headset microphone,
+- the other side of the conversation arrives through a different audio path,
+- both streams need to remain visible,
+- transcript text needs to be reusable immediately,
+- local deployment matters more than cloud dependency.
+
+The repository focuses on the engineering needed to make that workflow usable on a real Windows machine: audio routing, local STT, operator-facing diagnostics, packaging, and repeatable setup.
 
 ## Showcase
 
 ![OPERATOR_ASSIST workflow overview](docs/images/operator-assist-overview.svg)
 
-## Why This Project Is Interesting
-
-- It solves a real UX problem, not a toy CRUD task: one stream is the operator microphone, the other is the system or caller audio path.
-- It handles a non-trivial Windows audio capture problem using WASAPI loopback with fallback paths.
-- It separates product surfaces: desktop workflow, prompt-building workflow, and browser-first lightweight prototypes.
-- It uses an explicit post-processing layer for technical terminology instead of pretending raw STT output is always good enough.
-- It keeps large runtime assets and local operator data out of git, which is closer to how a real desktop tool is maintained.
-
-## What This Demonstrates
-
-- Desktop product thinking instead of script-only automation.
-- Pragmatic Windows audio engineering with multiple fallback paths.
-- Incremental architecture cleanup from legacy wrappers toward shared runtime services.
-- Public-repo hardening: CI, release automation, packaging assets, tests, and documentation.
-- Honest scope control: stable workflow separated from experimental AI handoff features.
-
 ## Core Capabilities
 
-- Simultaneous transcription of microphone audio and speaker/system audio into separate panels.
-- Offline Russian speech recognition using Vosk models.
-- Automatic detection of WASAPI loopback sources, with fallback to classic recording inputs such as Stereo Mix.
-- First-launch readiness checks for model presence, audio sources, and saved settings.
-- Technical-term normalization layer with switchable IT terminology mode.
-- Transcript export, clipboard copy, and local logging.
-- Prompt assembly workflow for AI assistance based on the caller stream.
-- Experimental Chrome bridge that can inject prepared prompts into a ChatGPT session.
-- Lightweight browser prototypes for voice notes and a single-stream speaker-text window.
+- Simultaneous transcription of microphone audio and speaker or system audio into separate panels.
+- Offline Russian speech recognition using local Vosk models.
+- Automatic WASAPI loopback discovery with fallback to classic recording inputs such as Stereo Mix.
+- First-launch readiness checks for model presence, source selection, and saved settings.
+- Local transcript copy, TXT export, and logging.
+- Technical-term normalization with a switchable IT vocabulary mode.
+- Prompt assembly workflow based on the speaker transcript.
+- Optional Chrome handoff experiment for sending the prepared prompt into a ChatGPT page.
+- Lightweight browser prototypes for single-stream notes and speaker-text capture.
+
+## Why The Design Looks Like This
+
+- Windows audio routing varies heavily across machines, so the app exposes capture diagnostics instead of assuming one fixed hardware path.
+- Local speech recognition keeps the main workflow usable without API quotas or network dependency.
+- Technical vocabulary correction is handled as deterministic post-processing rather than pretending raw STT is always enough.
+- Experimental AI handoff stays separate from the core desktop runtime so the stable path remains understandable and testable.
 
 ## System Architecture
 
@@ -71,109 +78,65 @@ flowchart LR
 
 More detail: [docs/architecture.md](docs/architecture.md)
 
-## Runtime Modes
+## Runtime Surfaces
 
-| Mode | Entry point | Purpose | Status |
-| --- | --- | --- | --- |
-| Desktop operator assistant | `operator_assist.py` | Main product workflow with IT mode and dual transcription UX | Primary |
-| Desktop loopback wrapper | `operator_assist_chat_bridge_v5_base.py` | Adds WASAPI loopback capture and Windows audio source selection | Primary dependency |
-| Base runtime | `operator_assist_runtime/base_runtime.py` | Core recognition engine, UI queue, transcript handling, prompt builder | Primary dependency |
-| Chrome bridge experiment | `operator_assist_chat_window_test.py` | Prompt injection into ChatGPT via Chrome remote debugging | Experimental |
-| Browser voice notes | `app/index.html` | Lightweight voice-note UI using Web Speech API | Prototype |
-| Browser speaker window | `app/speaker.html` | Lightweight speaker-text UI using Web Speech API | Prototype |
+| Surface | Entry point | Purpose |
+| --- | --- | --- |
+| Desktop operator assistant | `operator_assist.py` | Main Windows workflow with dual transcription and IT-mode corrections |
+| Loopback-enabled runtime | `operator_assist_chat_bridge_v5_base.py` | WASAPI loopback support and Windows source selection |
+| Shared runtime package | `operator_assist_runtime/base_runtime.py` | Recognition engine, UI orchestration, transcript flow, startup readiness |
+| Chrome bridge experiment | `operator_assist_chat_window_test.py` | Prompt injection into ChatGPT through Chrome remote debugging |
+| Browser voice notes | `app/index.html` | Lightweight note capture using Web Speech API |
+| Browser speaker text | `app/speaker.html` | Lightweight single-stream speaker transcription |
 
 ## Repository Layout
 
 ```text
 OPERATOR_ASSIST/
-├─ .github/
-│  └─ workflows/
-│     ├─ ci.yml                     GitHub Actions validation for syntax and lightweight tests
-│     └─ release.yml                Tagged Windows release build and publication
-├─ app/                               Browser prototypes (voice notes + speaker window)
-├─ assets/                            App icon and logo assets used by runtime and packaging
-├─ operator_assist_runtime/
-│  ├─ __init__.py
-│  ├─ base_runtime.py
-│  ├─ runtime_paths.py
-│  ├─ startup_readiness.py
-│  ├─ technical_terms.py
-│  └─ text_utils.py
-├─ backups/
-│  └─ operator_assist_chat_bridge_base.py  Legacy compatibility shim
-├─ docs/
-│  ├─ architecture.md
-│  ├─ case-study.md
-│  ├─ deployment.md
-│  ├─ first-launch.md
-│  ├─ known-issues.md
-│  └─ images/
-├─ packaging/
-│  ├─ inno/
-│  │  └─ OperatorAssist.iss
-│  └─ pyinstaller/
-│     └─ operator_assist.spec
-├─ tests/
-│  ├─ test_repository_contract.py
-│  ├─ test_runtime_paths.py
-│  ├─ test_startup_summary.py
-│  └─ test_technical_terms_manager.py
-├─ scripts/
-│  ├─ Build-Release.ps1
-│  ├─ Check-Environment.ps1
-│  ├─ paste_to_chat_window.vbs
-│  └─ Serve-App-Tcp.ps1
-├─ vendor/                            Vendored loopback dependencies for Windows runtime
-├─ Run-Operator-Assist.ps1            Portable desktop launcher
-├─ pyproject.toml                     Packaging and project metadata
-├─ operator_assist.py                 Top wrapper with IT-mode terminology layer
+├─ .github/workflows/                CI and tagged release automation
+├─ app/                              Browser prototypes
+├─ assets/                           Icons and logo assets
+├─ backups/                          Compatibility shim for older local entry points
+├─ docs/                             Architecture, setup, deployment, and demo notes
+├─ operator_assist_runtime/          Shared runtime package
+├─ packaging/                        PyInstaller and Inno Setup files
+├─ scripts/                          Build, bootstrap, environment, and helper scripts
+├─ tests/                            Repository and runtime unit tests
+├─ vendor/                           Vendored Windows loopback dependencies
+├─ operator_assist.py                Main desktop entry point
 ├─ operator_assist_chat_bridge_v5_base.py
 ├─ operator_assist_chat_window_test.py
+├─ pyproject.toml
 ├─ requirements.txt
 └─ technical_terms.json
 ```
 
-The canonical base runtime now lives in `operator_assist_runtime/base_runtime.py`. The file under `backups/` is intentionally retained only as a compatibility shim for older local entry points.
-
-## Tech Stack
-
-- Python 3.10
-- Tkinter for the native Windows desktop UI
-- Vosk for offline speech recognition
-- `sounddevice` for microphone/input capture
-- `soundcard` + NumPy + CFFI for WASAPI loopback capture
-- WebSockets for the Chrome bridge experiment
-- HTML/CSS/JavaScript + Web Speech API for browser prototypes
-- Local JSON/text persistence for settings, prompt templates, logs, and transcripts
-
 ## Quick Start
 
-### Install from GitHub release
+### Option A: Install from GitHub Release
 
-If you want to try the packaged app on another Windows machine instead of running from source:
-
-1. Open the repository [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
+1. Open [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
 2. Download either `OPERATOR_ASSIST-Setup-<version>.exe` or `OPERATOR_ASSIST-portable-<version>.zip`.
-3. Install or extract the app.
-4. Place one supported Vosk model into `data/models/` before first launch.
+3. Install or extract the package.
+4. Place one supported Vosk model into `data/models/`.
 5. Start the app and use the readiness block to confirm both audio sources.
 
-More detail: [Install from release](docs/install-from-release.md)
+More detail: [docs/install-from-release.md](docs/install-from-release.md)
 
-### 1. Install Python
+### Option B: Run from source
+
+#### 1. Install Python 3.10
 
 The desktop runtime was developed against Python `3.10.x`.
 
-### 2. Clone the repository
+#### 2. Clone the repository
 
 ```powershell
 git clone https://github.com/YuryGorshkov/OPERATOR_ASSIST.git
 cd OPERATOR_ASSIST
 ```
 
-### 3. Run the source setup helper
-
-Recommended Windows bootstrap:
+#### 3. Run the Windows bootstrap helper
 
 ```text
 Setup-From-Git.cmd
@@ -187,7 +150,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup-From-Git
 
 This setup creates a project-local `.venv`, installs dependencies, prepares local folders, and runs a preflight check.
 
-### 4. Add a Vosk model
+#### 4. Add a Vosk model
 
 Place one supported Russian model under the local `models/` directory. The runtime checks these paths:
 
@@ -195,9 +158,7 @@ Place one supported Russian model under the local `models/` directory. The runti
 - `models/vosk-model-ru-0.22`
 - `models/vosk-model-small-ru-0.22`
 
-Speech models are intentionally excluded from git because they are large runtime assets, not source code.
-
-### 5. Launch the main desktop app
+#### 5. Launch the desktop app
 
 Windows launcher:
 
@@ -207,27 +168,29 @@ Run-Operator-Assist.cmd
 
 Main Python entry point:
 
-```bash
-python operator_assist.py
+```powershell
+python .\operator_assist.py
 ```
 
-### 6. First launch behavior
+#### 6. Review first-launch readiness
 
-If the app cannot find a speech model yet, it now shows a readiness block instead of relying only on immediate modal errors.
+If the app cannot find a speech model yet, it shows a readiness block instead of failing only through modal errors.
 
-Use the in-app buttons to:
+Use the in-app quick actions to:
 
-- open the local `models/` folder,
-- place a supported Russian Vosk model there,
-- re-run the startup checks,
-- confirm microphone and caller/system-audio routing before pressing `Старт`.
+- open the local model folder,
+- re-run startup checks,
+- confirm microphone and caller or system-audio routing,
+- verify both channels before pressing `Старт`.
 
-More detail: [First launch guide](docs/first-launch.md)
-Source setup detail: [Install from git](docs/install-from-git.md)
+More detail:
 
-### 7. Launch the browser prototypes
+- [docs/first-launch.md](docs/first-launch.md)
+- [docs/install-from-git.md](docs/install-from-git.md)
 
-Serve the local `app/` directory with the included PowerShell server:
+#### 7. Launch the browser prototypes
+
+Serve the local `app/` directory:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Serve-App-Tcp.ps1
@@ -238,130 +201,91 @@ Then open:
 - `http://127.0.0.1:8765/`
 - `http://127.0.0.1:8765/speaker.html`
 
-### 8. Run a preflight check
+## Validation
+
+Run the environment preflight:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-### 9. Run repository checks
+Run repository tests:
 
-```bash
-python -m unittest discover -s tests
+```powershell
+python -m unittest discover -s tests -v
 ```
 
-## Release Packaging
+## Release And Packaging
 
-The repository now includes a committed Windows packaging workflow rather than only ad-hoc launchers.
+Build-time tooling:
 
-Install build-time tooling:
-
-```bash
+```powershell
 pip install .[build]
 ```
 
-Build a release bundle:
+Release build:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-By default this:
+The release pipeline:
 
-- runs the repository tests,
+- runs repository tests,
 - builds a PyInstaller one-folder bundle,
-- assembles a portable release under `release/portable/OPERATOR_ASSIST`,
-- creates a portable `.zip`,
-- attempts an Inno Setup installer build if `ISCC.exe` is installed locally.
+- assembles a portable Windows release layout,
+- creates a versioned portable zip,
+- builds an Inno Setup installer when `ISCC.exe` is available,
+- publishes tagged releases through `.github/workflows/release.yml`.
 
-Typical build outputs:
+Typical outputs:
 
 - `release/portable/OPERATOR_ASSIST`
-- `release/portable/OPERATOR_ASSIST-portable.zip`
-- `release/installer/OPERATOR_ASSIST-Setup.exe`
 - `release/publish/OPERATOR_ASSIST-portable-<version>.zip`
 - `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
 - `release/publish/SHA256SUMS.txt`
 
-Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v1.0.1` builds the Windows artifacts and publishes them to the matching GitHub Release.
+## Engineering Notes
 
-## Dependency Strategy
+### Local STT instead of cloud STT
 
-This repository uses a mixed dependency model on purpose:
+The main workflow is optimized for privacy, latency, and independence from external API quotas.
 
-- `vosk`, `sounddevice`, and `websockets` are expected from the Python environment.
-- `soundcard`, `numpy`, `cffi`, and related binaries are also vendored under `vendor/` to make the loopback path easier to move between Windows machines.
-- Large Vosk models, transcripts, logs, and local settings are kept outside version control.
+### Layered runtime instead of one monolithic script
 
-That is not the cleanest packaging story yet, but it is an explicit trade-off between reproducibility and practical Windows portability.
+The repository evolved toward:
 
-## Engineering Decisions
+- a shared runtime package,
+- a Windows loopback-aware desktop wrapper,
+- an IT terminology wrapper,
+- an isolated Chrome handoff experiment.
 
-### Local STT over cloud STT
+That split keeps the stable transcription path separate from workflow experiments.
 
-The primary workflow is designed around local or offline recognition for privacy, latency, and independence from API quotas.
+### Deterministic terminology normalization
 
-### Layered wrappers instead of one giant script
+For support and interview-style technical conversations, common-domain correction can deliver more value than swapping recognizers. IT mode is implemented as a controlled post-processing layer rather than hidden prompt logic.
 
-The codebase evolved into a layered runtime:
+### Practical Windows portability
 
-- base recognition engine,
-- loopback-enabled desktop wrapper,
-- IT-mode enrichment wrapper,
-- Chrome bridge experiment.
-
-This keeps experiments from rewriting the core transcription flow.
-
-### Post-processing dictionary instead of model fine-tuning
-
-For technical interviews and support scenarios, improving the last 10% of domain vocabulary is often more useful than replacing the recognizer. The IT mode is implemented as a controlled correction layer over raw transcript output.
-
-### Separate UX surfaces for separate jobs
-
-The repository does not force one interface to solve every scenario. It includes:
-
-- a desktop operator workflow,
-- a browser voice-note workflow,
-- a browser speaker-only window,
-- an experimental AI handoff flow.
+Some loopback dependencies are vendored because the Windows audio path is one of the least predictable parts of the setup. This is an explicit trade-off in favor of reproducible local behavior.
 
 ## Current Constraints
 
-- Windows-first implementation for the primary desktop mode.
-- Speech models are still external runtime assets, so first launch is not fully zero-click.
-- The Chrome bridge is experimental and should be treated as an optional workflow, not the default.
-- Quality checks exist, but the test layer is still minimal and does not yet cover real audio fixtures.
-- Windows distribution is still unsigned, so SmartScreen-style trust warnings are still possible on fresh machines.
-- The repository is optimized for practical usage and iteration speed, not for library-style packaging purity.
+- Primary desktop workflow is Windows-first.
+- Vosk models are external runtime assets and are not bundled in git or releases.
+- The Chrome bridge is optional and experimental.
+- Automated checks cover deterministic logic and repository contracts, not real audio fixtures.
+- Windows binaries are unsigned, so SmartScreen warnings are still possible on fresh machines.
 
-## What I Would Do Next For Production
+## Documentation Map
 
-- Add a guided model bootstrap flow so the operator can prepare `models/` with less manual work.
-- Add code signing and release attestations for cleaner Windows distribution.
-- Add automated audio-fixture regression tests for transcription and post-processing.
-- Introduce VAD or diarization to reduce noise and cross-talk.
-- Move prompt engineering into configurable profiles instead of hard-coded workflow assumptions.
-- Add a knowledge-base layer for company-specific support content.
-- Separate stable runtime modules from experiments into clearer package boundaries.
-
-## Additional Documentation
-
-- [Architecture notes](docs/architecture.md)
-- [Case study](docs/case-study.md)
-- [Install from git repository](docs/install-from-git.md)
-- [Deployment and packaging notes](docs/deployment.md)
-- [Demo script](docs/demo-script.md)
-- [First launch guide](docs/first-launch.md)
-- [Install from packaged release](docs/install-from-release.md)
-- [Known issues](docs/known-issues.md)
-- [Smoke checklist for another PC](docs/smoke-checklist.md)
-
-## Project Positioning
-
-This project is strongest when presented as:
-
-- a Windows audio-capture and speech-workflow engineering project,
-- a local-first operator productivity tool,
-- an example of iterative productization from prototype to multi-surface utility.
-
-It is not positioned as "perfect AI". It is positioned as a practical system that makes difficult audio and workflow problems tractable on a real operator machine.
+- [docs/architecture.md](docs/architecture.md)
+- [docs/case-study.md](docs/case-study.md)
+- [docs/demo-script.md](docs/demo-script.md)
+- [docs/deployment.md](docs/deployment.md)
+- [docs/first-launch.md](docs/first-launch.md)
+- [docs/install-from-git.md](docs/install-from-git.md)
+- [docs/install-from-release.md](docs/install-from-release.md)
+- [docs/known-issues.md](docs/known-issues.md)
+- [docs/smoke-checklist.md](docs/smoke-checklist.md)

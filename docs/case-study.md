@@ -61,9 +61,9 @@ The repository includes both:
 
 That split is useful because not every scenario needs the same trade-offs.
 
-## What This Demonstrates
+## Engineering Outcomes
 
-From an engineering review perspective, the project is valuable because it shows:
+From an engineering review perspective, the project shows:
 
 - pragmatic architecture under real constraints,
 - handling of ugly platform-specific audio problems,
@@ -79,15 +79,15 @@ From an engineering review perspective, the project is valuable because it shows
 - Automated checks exist, but they still focus on deterministic logic and repository contracts rather than real audio fixtures.
 - Accuracy improvements are still mostly dictionary- and workflow-driven rather than model-driven.
 
-## Why It Is Still Worth Showing
+## Why The Approach Matters
 
-This is exactly the kind of project that is stronger in a senior conversation than a generic template app, because the interesting part is not UI glitter.
+This repository is more useful for technical review than a generic template app because the interesting part is not visual polish alone.
 
-The interesting part is:
+The key value is:
 
 - understanding the real problem,
 - choosing the least fragile path under OS constraints,
 - keeping a working system alive while extending it,
 - and being honest about where the engineering is strong versus where it is still evolving.
 
-That honesty matters: as of August 19, 2026, the project already demonstrates useful packaging, startup readiness improvements, and repository-level hardening, while still leaving obvious room for production-grade audio regression testing and distribution polish.
+As of August 20, 2026, the project already includes public releases, startup readiness improvements, packaging cleanup, and repository hardening, while still leaving obvious room for production-grade audio regression testing and distribution polish.
