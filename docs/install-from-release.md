@@ -23,11 +23,22 @@ Both assets are built from the same release pipeline. The installer is more conv
 2. Open the extracted `OPERATOR_ASSIST` directory.
 3. Start `OPERATOR_ASSIST.exe`.
 
+## Packaged Folder Layout
+
+The packaged app keeps user-editable and writable files out of the top-level application root:
+
+- `data/models/` for the Vosk model,
+- `data/logs/` for runtime logs,
+- `data/transcripts/` for exported transcripts,
+- `config/technical_terms.json` for editable term replacements,
+- `config/chatgpt_prompt_template.txt` for the AI handoff template,
+- `support/` for helper materials and bridge scripts.
+
 ## Required Model Step
 
 The packaged app still expects an external Russian Vosk model. Before first successful recognition:
 
-1. open the local `models/` folder next to the executable,
+1. open the local `data/models/` folder,
 2. extract one supported model there,
 3. confirm one of these folder names exists:
    - `vosk-model-ru-0.42`
@@ -45,7 +56,7 @@ On first start, the app should guide the operator through readiness checks:
 - caller or system-audio source selected,
 - settings path available.
 
-Use the readiness actions to open `models/`, re-check the environment, and confirm the final routing before pressing `Старт`.
+Use the readiness actions to open the models folder, re-check the environment, and confirm the final routing before pressing `Старт`.
 
 ## If Windows Shows A Trust Warning
 

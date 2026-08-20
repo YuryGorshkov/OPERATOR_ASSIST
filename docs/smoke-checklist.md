@@ -13,14 +13,14 @@ Use this checklist when testing a packaged release on a different Windows machin
 
 - Run `OPERATOR_ASSIST-Setup-<version>.exe` or extract `OPERATOR_ASSIST-portable-<version>.zip`.
 - Open the installed or extracted app folder.
-- Check that `models/`, `logs/`, and `transcripts/` exist or can be created.
+- Check that `data/models/`, `data/logs/`, and `data/transcripts/` exist or can be created.
 
 ## First Start
 
 - Launch `OPERATOR_ASSIST`.
 - Confirm the app opens without a crash.
 - Confirm the readiness block is visible.
-- If no model is detected, place the model in `models/` and click `Проверить снова`.
+- If no model is detected, place the model in `data/models/` and click `Проверить снова`.
 
 ## Device Selection
 

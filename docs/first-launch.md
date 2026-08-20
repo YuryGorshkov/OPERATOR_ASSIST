@@ -15,7 +15,10 @@ The goal is to keep startup informative without forcing the user through modal e
 
 ## Supported Model Folder Names
 
-The runtime currently looks for one of these local folders under `models/`:
+The runtime currently looks for one of these local folders:
+
+- source checkout: under `models/`
+- packaged install: under `data/models/`
 
 - `vosk-model-ru-0.42`
 - `vosk-model-ru-0.22`

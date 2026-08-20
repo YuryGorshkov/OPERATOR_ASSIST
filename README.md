@@ -155,7 +155,7 @@ If you want to try the packaged app on another Windows machine instead of runnin
 1. Open the repository [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
 2. Download either `OPERATOR_ASSIST-Setup-<version>.exe` or `OPERATOR_ASSIST-portable-<version>.zip`.
 3. Install or extract the app.
-4. Place one supported Vosk model into the local `models/` folder before first launch.
+4. Place one supported Vosk model into `data/models/` before first launch.
 5. Start the app and use the readiness block to confirm both audio sources.
 
 More detail: [Install from release](docs/install-from-release.md)
@@ -283,7 +283,7 @@ Typical build outputs:
 - `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
 - `release/publish/SHA256SUMS.txt`
 
-Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v1.0.0` builds the Windows artifacts and publishes them to the matching GitHub Release.
+Tagged GitHub releases are now automated through `.github/workflows/release.yml`. A pushed tag like `v1.0.1` builds the Windows artifacts and publishes them to the matching GitHub Release.
 
 ## Dependency Strategy
 

@@ -133,7 +133,7 @@ By default the script:
 1. runs `python -m unittest discover -s tests`,
 2. builds a PyInstaller one-folder bundle,
 3. assembles `release/portable/OPERATOR_ASSIST`,
-4. writes a small `BUILD_INFO.txt`,
+4. writes packaged support files under `support/`,
 5. creates a portable zip archive,
 6. tries to build an Inno Setup installer when `ISCC.exe` is available.
 
@@ -161,7 +161,7 @@ The repository now includes a dedicated GitHub Actions release workflow:
 
 - `.github/workflows/release.yml`
 
-What it does on a tagged push like `v1.0.0`:
+What it does on a tagged push like `v1.0.1`:
 
 1. pins the runner to `windows-2025`,
 2. installs Python build dependencies,
@@ -176,7 +176,7 @@ Recommended release procedure:
 1. update `pyproject.toml` version,
 2. update `CHANGELOG.md`,
 3. commit the release preparation,
-4. create and push a matching tag like `v1.0.0`,
+4. create and push a matching tag like `v1.0.1`,
 5. let GitHub Actions build and attach the Windows assets automatically.
 
 ## Frozen Runtime Behavior
@@ -184,14 +184,15 @@ Recommended release procedure:
 The runtime now separates:
 
 - the bundle directory used by frozen Python modules,
-- the application directory next to the executable where editable and writable files live.
+- the application directory next to the executable where packaged user data is kept.
 
 That keeps the packaged app aligned with the existing product behavior:
 
-- `technical_terms.json` stays editable,
-- `chatgpt_prompt_template.txt` stays editable,
-- `models/` stays external,
-- `logs/` and `transcripts/` stay writable next to the executable.
+- `config/technical_terms.json` stays editable,
+- `config/chatgpt_prompt_template.txt` stays editable,
+- `data/models/` stays external,
+- `data/logs/` and `data/transcripts/` stay writable,
+- `support/` keeps build notes and helper scripts out of the app root.
 
 ## First-Launch Expectations
 

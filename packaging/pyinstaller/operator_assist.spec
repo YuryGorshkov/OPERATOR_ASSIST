@@ -10,9 +10,6 @@ if not (project_root / "operator_assist.py").exists():
     project_root = Path(__file__).resolve().parents[2]
 
 datas = [
-    (str(project_root / "technical_terms.json"), "."),
-    (str(project_root / "chatgpt_prompt_template.txt"), "."),
-    (str(project_root / "scripts" / "paste_to_chat_window.vbs"), "scripts"),
     (str(project_root / "assets" / "logo-enot.png"), "assets"),
     (str(project_root / "assets" / "logo-enot-72.png"), "assets"),
     (str(project_root / "assets" / "logo-enot-96.png"), "assets"),

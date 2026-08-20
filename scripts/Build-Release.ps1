@@ -234,16 +234,15 @@ if (-not (Test-Path -LiteralPath $builtBundleRoot)) {
 
 Write-Step "Assembling portable release layout"
 Copy-Item -LiteralPath $builtBundleRoot -Destination $portableRoot -Recurse -Force
-Ensure-Directory -TargetPath (Join-Path $portableRoot "models")
-Ensure-Directory -TargetPath (Join-Path $portableRoot "logs")
-Ensure-Directory -TargetPath (Join-Path $portableRoot "transcripts")
-Ensure-Directory -TargetPath (Join-Path $portableRoot "scripts")
+Ensure-Directory -TargetPath (Join-Path $portableRoot "data\models")
+Ensure-Directory -TargetPath (Join-Path $portableRoot "data\logs")
+Ensure-Directory -TargetPath (Join-Path $portableRoot "data\transcripts")
+Ensure-Directory -TargetPath (Join-Path $portableRoot "config")
+Ensure-Directory -TargetPath (Join-Path $portableRoot "support\scripts")
 
-Copy-ProjectFile -RelativeSource "technical_terms.json" -RelativeDestination "technical_terms.json"
-Copy-ProjectFile -RelativeSource "chatgpt_prompt_template.txt" -RelativeDestination "chatgpt_prompt_template.txt"
-Copy-ProjectFile -RelativeSource "scripts\paste_to_chat_window.vbs" -RelativeDestination "scripts\paste_to_chat_window.vbs"
-Copy-ProjectFile -RelativeSource "README.md" -RelativeDestination "README.md"
-Copy-ProjectFile -RelativeSource "docs\deployment.md" -RelativeDestination "docs\deployment.md"
+Copy-ProjectFile -RelativeSource "technical_terms.json" -RelativeDestination "config\technical_terms.json"
+Copy-ProjectFile -RelativeSource "chatgpt_prompt_template.txt" -RelativeDestination "config\chatgpt_prompt_template.txt"
+Copy-ProjectFile -RelativeSource "scripts\paste_to_chat_window.vbs" -RelativeDestination "support\scripts\paste_to_chat_window.vbs"
 
 $modelsReadme = @(
     "Add one supported Vosk model directory here before first launch:",
@@ -253,7 +252,21 @@ $modelsReadme = @(
     "",
     "The release bundle intentionally does not ship large speech models."
 )
-Set-Content -LiteralPath (Join-Path $portableRoot "models\README.txt") -Value $modelsReadme -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $portableRoot "data\models\README.txt") -Value $modelsReadme -Encoding UTF8
+
+$quickStart = @(
+    "OPERATOR_ASSIST quick start",
+    "",
+    "1. Open .\data\models and place one supported Russian Vosk model there.",
+    "2. Start OPERATOR_ASSIST.exe.",
+    "3. If the app still reports a missing model, click 'Папка models' and then 'Проверить снова'.",
+    "4. Logs are written to .\data\logs and saved transcripts to .\data\transcripts.",
+    "",
+    "Editable helper files:",
+    "- .\config\technical_terms.json",
+    "- .\config\chatgpt_prompt_template.txt"
+)
+Set-Content -LiteralPath (Join-Path $portableRoot "support\HOW_TO_START.txt") -Value $quickStart -Encoding UTF8
 
 $commitHash = ""
 try {
@@ -270,10 +283,11 @@ $buildInfo = @(
     "Python: $pythonVersion",
     "Entry point: OPERATOR_ASSIST.exe",
     "Notes:",
-    "- Place a supported Vosk model under .\models before first launch.",
-    "- technical_terms.json and chatgpt_prompt_template.txt stay editable next to the executable."
+    "- Place a supported Vosk model under .\data\models before first launch.",
+    "- Editable helper files live under .\config.",
+    "- Support materials live under .\support."
 )
-Set-Content -LiteralPath (Join-Path $portableRoot "BUILD_INFO.txt") -Value $buildInfo -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $portableRoot "support\BUILD_INFO.txt") -Value $buildInfo -Encoding UTF8
 
 $publishedAssets = @()
 

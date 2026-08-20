@@ -61,22 +61,7 @@ _base_mod, _base_path = load_base_module()
 
 def rebind_environment():
     runtime = _base_mod._base
-    runtime.BASE_DIR = CURRENT_DIR
-    runtime.SETTINGS_PATH = CURRENT_DIR / "operator_assist_settings.json"
-    runtime.TRANSCRIPTS_DIR = CURRENT_DIR / "transcripts"
-    runtime.PROMPT_TEMPLATE_PATH = CURRENT_DIR / "chatgpt_prompt_template.txt"
-    runtime.BRIDGE_SCRIPT_PATH = CURRENT_DIR / "scripts" / "paste_to_chat_window.vbs"
-    runtime.TECHNICAL_TERMS_PATH = CURRENT_DIR / "technical_terms.json"
-    runtime.ASSETS_DIR = CURRENT_DIR / "assets"
-    runtime.APP_LOGO_PATH = runtime.ASSETS_DIR / "logo-enot.png"
-    runtime.APP_LOGO_SMALL_PATH = runtime.ASSETS_DIR / "logo-enot-72.png"
-    runtime.APP_LOGO_LARGE_PATH = runtime.ASSETS_DIR / "logo-enot-128.png"
-    runtime.APP_ICON_PATH = runtime.ASSETS_DIR / "operator_assist.ico"
-    runtime.MODEL_CANDIDATES = [
-        CURRENT_DIR / "models" / "vosk-model-ru-0.42",
-        CURRENT_DIR / "models" / "vosk-model-ru-0.22",
-        CURRENT_DIR / "models" / "vosk-model-small-ru-0.22",
-    ]
+    runtime.apply_runtime_layout(CURRENT_DIR, bundle_dir=BUNDLE_DIR, frozen=is_frozen())
     runtime.RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     runtime.LOGS_DIR = runtime.resolve_logs_dir()
     runtime.LOG_PATH = runtime.LOGS_DIR / f"operator_assist_{runtime.RUN_TIMESTAMP}.log"

@@ -16,8 +16,8 @@ class StartupSummaryTests(unittest.TestCase):
         )
 
         self.assertEqual("Нужна модель распознавания", summary["title"])
-        self.assertIn("папку models", summary["hint"])
-        self.assertIn("положите в папку models", summary["model_line"])
+        self.assertIn("папку с моделями", summary["hint"])
+        self.assertIn("в папку с моделями", summary["model_line"])
         self.assertFalse(summary["ready"])
 
     def test_loaded_model_and_devices_are_ready(self):

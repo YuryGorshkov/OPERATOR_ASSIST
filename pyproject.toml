@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "operator-assist"
-version = "1.0.0"
+version = "1.0.1"
 description = "Windows-first dual-stream speech transcription and operator assistance toolkit."
 readme = "README.md"
 requires-python = ">=3.10"

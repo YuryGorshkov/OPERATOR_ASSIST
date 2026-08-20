@@ -4,7 +4,19 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
-Repository and product-polish work prepared after `v1.0.0`.
+Repository and product-polish work prepared after `v1.0.1`.
+
+## v1.0.1 - 2026-08-20
+
+Packaged-install cleanup release.
+
+Highlights:
+
+- moved editable packaged files into dedicated `config/`, `data/`, and `support/` folders
+- cleaned the installed application root so it looks closer to a normal Windows product
+- removed duplicated packaged helper files from the frozen bundle layout
+- updated runtime path handling so source and packaged modes keep the correct writable locations
+- expanded tests and release docs around the new packaged-install structure
 
 ## v1.0.0 - 2026-08-19
 

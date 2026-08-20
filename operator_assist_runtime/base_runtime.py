@@ -24,7 +24,7 @@ from operator_assist_runtime.technical_terms import (
     TechnicalTermsManager,
     serialize_terms_payload,
 )
-from operator_assist_runtime.runtime_paths import application_root
+from operator_assist_runtime.runtime_paths import application_root, bundle_root, runtime_layout
 from operator_assist_runtime.audio_diagnostics import (
     SIGNAL_LIVE_THRESHOLD,
     build_route_diagnostic_message,
@@ -41,17 +41,8 @@ from operator_assist_runtime.text_utils import (
 
 APP_TITLE = "OPERATOR_ASSIST Operator Assist"
 APP_VERSION = "2026-07-09-chat1"
-BASE_DIR = application_root(__file__, levels_up=1)
-SETTINGS_PATH = BASE_DIR / "operator_assist_settings.json"
-TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
-PROMPT_TEMPLATE_PATH = BASE_DIR / "chatgpt_prompt_template.txt"
-BRIDGE_SCRIPT_PATH = BASE_DIR / "scripts" / "paste_to_chat_window.vbs"
-TECHNICAL_TERMS_PATH = BASE_DIR / "technical_terms.json"
-ASSETS_DIR = BASE_DIR / "assets"
-APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
-APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
-APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
-APP_ICON_PATH = ASSETS_DIR / "operator_assist.ico"
+ROOT_DIR = application_root(__file__, levels_up=1)
+BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 TARGET_SAMPLE_RATE = 16000
 AUDIO_BLOCK_MS = 250
@@ -65,15 +56,65 @@ CHATGPT_URL = "https://chatgpt.com/"
 CHAT_CONTEXT_CHARS = 1400
 CHAT_FULL_CHARS = 2200
 
-MODEL_CANDIDATES = [
-    BASE_DIR / "models" / "vosk-model-ru-0.42",
-    BASE_DIR / "models" / "vosk-model-ru-0.22",
-    BASE_DIR / "models" / "vosk-model-small-ru-0.22",
-]
+BASE_DIR = ROOT_DIR
+PACKAGED_LAYOUT = False
+DATA_DIR = ROOT_DIR
+CONFIG_DIR = ROOT_DIR
+SUPPORT_DIR = ROOT_DIR
+ASSETS_DIR = ROOT_DIR / "assets"
+MODELS_DIR = ROOT_DIR / "models"
+SETTINGS_PATH = ROOT_DIR / "operator_assist_settings.json"
+TRANSCRIPTS_DIR = ROOT_DIR / "transcripts"
+PROMPT_TEMPLATE_PATH = ROOT_DIR / "chatgpt_prompt_template.txt"
+BRIDGE_SCRIPT_PATH = ROOT_DIR / "scripts" / "paste_to_chat_window.vbs"
+TECHNICAL_TERMS_PATH = ROOT_DIR / "technical_terms.json"
+APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
+APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
+APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
+APP_ICON_PATH = ASSETS_DIR / "operator_assist.ico"
+MODEL_CANDIDATES = []
+
+
+def apply_runtime_layout(base_dir=None, *, bundle_dir=None, frozen=None):
+    global BASE_DIR, BUNDLE_DIR, PACKAGED_LAYOUT
+    global DATA_DIR, CONFIG_DIR, SUPPORT_DIR, ASSETS_DIR, MODELS_DIR
+    global SETTINGS_PATH, TRANSCRIPTS_DIR, PROMPT_TEMPLATE_PATH, BRIDGE_SCRIPT_PATH, TECHNICAL_TERMS_PATH
+    global APP_LOGO_PATH, APP_LOGO_SMALL_PATH, APP_LOGO_LARGE_PATH, APP_ICON_PATH, MODEL_CANDIDATES
+
+    resolved_base = Path(base_dir).resolve() if base_dir is not None else ROOT_DIR
+    resolved_bundle = Path(bundle_dir).resolve() if bundle_dir is not None else BUNDLE_DIR
+    layout = runtime_layout(resolved_base, bundle_dir=resolved_bundle, frozen=frozen)
+
+    BASE_DIR = layout["base_dir"]
+    BUNDLE_DIR = layout["bundle_dir"]
+    PACKAGED_LAYOUT = layout["packaged"]
+    DATA_DIR = layout["data_dir"]
+    CONFIG_DIR = layout["config_dir"]
+    SUPPORT_DIR = layout["support_dir"]
+    ASSETS_DIR = layout["assets_dir"]
+    MODELS_DIR = layout["models_dir"]
+    SETTINGS_PATH = layout["settings_path"]
+    TRANSCRIPTS_DIR = layout["transcripts_dir"]
+    PROMPT_TEMPLATE_PATH = layout["prompt_template_path"]
+    BRIDGE_SCRIPT_PATH = layout["bridge_script_path"]
+    TECHNICAL_TERMS_PATH = layout["technical_terms_path"]
+    APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
+    APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
+    APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
+    APP_ICON_PATH = ASSETS_DIR / "operator_assist.ico"
+    MODEL_CANDIDATES = [
+        MODELS_DIR / "vosk-model-ru-0.42",
+        MODELS_DIR / "vosk-model-ru-0.22",
+        MODELS_DIR / "vosk-model-small-ru-0.22",
+    ]
+    return layout
+
+
+RUNTIME_LAYOUT = apply_runtime_layout(ROOT_DIR, bundle_dir=BUNDLE_DIR)
 
 
 def models_root():
-    return BASE_DIR / "models"
+    return MODELS_DIR
 
 
 def supported_model_names():
@@ -91,7 +132,7 @@ def default_technical_terms_content():
 def resolve_logs_dir():
     temp_root = Path(os.environ.get("TEMP") or os.environ.get("TMP") or "C:\\tmp")
     candidates = [
-        BASE_DIR / "logs",
+        DATA_DIR / "logs",
         temp_root / "OPERATOR_ASSIST_logs",
     ]
 
