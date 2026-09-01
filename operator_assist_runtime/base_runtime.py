@@ -57,7 +57,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

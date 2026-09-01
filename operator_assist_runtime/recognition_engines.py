@@ -1,8 +1,11 @@
 """Recognition-engine adapters used by the desktop runtime."""
 
+import ctypes
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
+import sys
 
 try:
     import numpy as np
@@ -28,6 +31,77 @@ from vosk import KaldiRecognizer
 
 
 DEFAULT_PRECISE_MODEL_NAME = "large-v3"
+_CUDA_DLL_DIRECTORY_HANDLES = []
+
+
+def _candidate_cublas_bin_dirs():
+    candidates = []
+
+    try:
+        import nvidia.cublas
+
+        candidates.extend(Path(path) / "bin" for path in nvidia.cublas.__path__)
+    except Exception:
+        pass
+
+    if getattr(sys, "frozen", False):
+        bundle_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        candidates.extend(
+            (
+                bundle_root / "nvidia" / "cublas" / "bin",
+                bundle_root / "_internal" / "nvidia" / "cublas" / "bin",
+            )
+        )
+
+    unique_candidates = []
+    seen = set()
+    for candidate in candidates:
+        resolved = str(candidate.resolve())
+        if resolved.lower() not in seen:
+            unique_candidates.append(Path(resolved))
+            seen.add(resolved.lower())
+    return unique_candidates
+
+
+def prepare_cuda_runtime(*, logger=None):
+    """Preload cuBLAS so CTranslate2 can resolve it in frozen Windows builds."""
+    if os.name != "nt":
+        return True, "CUDA runtime uses the platform loader."
+
+    required_dlls = ("cublasLt64_12.dll", "cublas64_12.dll")
+    errors = []
+
+    for candidate in _candidate_cublas_bin_dirs():
+        if not all((candidate / dll_name).is_file() for dll_name in required_dlls):
+            continue
+
+        try:
+            candidate_text = str(candidate)
+            if candidate_text.lower() not in os.environ.get("PATH", "").lower():
+                os.environ["PATH"] = candidate_text + os.pathsep + os.environ.get("PATH", "")
+            if hasattr(os, "add_dll_directory"):
+                _CUDA_DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(candidate_text))
+            for dll_name in required_dlls:
+                ctypes.WinDLL(str(candidate / dll_name))
+            if logger is not None:
+                logger.info("CUDA cuBLAS runtime ready. bin_dir=%s", candidate)
+            return True, f"cuBLAS загружен из {candidate}"
+        except OSError as error:
+            errors.append(f"{candidate}: {error}")
+
+    try:
+        for dll_name in required_dlls:
+            ctypes.WinDLL(dll_name)
+        if logger is not None:
+            logger.info("CUDA cuBLAS runtime ready via the Windows DLL search path")
+        return True, "cuBLAS загружен из системного пути."
+    except OSError as error:
+        errors.append(f"system path: {error}")
+
+    details = "; ".join(errors) if errors else "файлы cuBLAS не найдены"
+    if logger is not None:
+        logger.warning("CUDA cuBLAS runtime unavailable. details=%s", details)
+    return False, details
 
 
 @dataclass(frozen=True)
@@ -120,6 +194,13 @@ def load_precise_engine_bundle(
 
     errors = []
     attempt_plan = precise_engine_attempt_plan()
+    if any(device == "cuda" for device, _compute_type in attempt_plan):
+        cuda_ready, cuda_details = prepare_cuda_runtime(logger=logger)
+        if not cuda_ready:
+            errors.append(f"cuda/runtime: {cuda_details}")
+            attempt_plan = [
+                attempt for attempt in attempt_plan if attempt[0] != "cuda"
+            ]
     for attempt_index, (device, compute_type) in enumerate(attempt_plan, start=1):
         if progress_callback is not None:
             progress_callback(

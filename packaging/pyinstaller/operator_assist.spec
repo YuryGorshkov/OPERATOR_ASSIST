@@ -24,6 +24,7 @@ datas += collect_data_files("ctranslate2")
 
 binaries = []
 binaries += collect_dynamic_libs("ctranslate2")
+binaries += collect_dynamic_libs("nvidia.cublas")
 
 hiddenimports = [
     "operator_assist_chat_bridge_v5_base",
@@ -41,6 +42,7 @@ hiddenimports = [
 hiddenimports += collect_submodules("soundcard")
 hiddenimports += collect_submodules("faster_whisper")
 hiddenimports += collect_submodules("ctranslate2")
+hiddenimports += collect_submodules("nvidia.cublas")
 
 hookspath = [
     str(project_root / "vendor" / "soundcard" / "__pyinstaller"),

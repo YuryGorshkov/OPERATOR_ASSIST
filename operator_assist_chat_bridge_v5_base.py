@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.1.0"
+WRAPPER_VERSION = "1.1.1"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [

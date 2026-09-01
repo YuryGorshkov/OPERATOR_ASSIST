@@ -2,6 +2,17 @@
 
 All notable repository-facing changes are documented here.
 
+## v1.1.1 - 2026-09-01
+
+GPU runtime reliability fix.
+
+Highlights:
+
+- bundled the CUDA 12 cuBLAS libraries required by `faster-whisper` during real GPU inference
+- explicitly preload cuBLAS before starting the precise engine on Windows
+- fall back to CPU instead of terminating the recognition worker when the CUDA runtime is unavailable
+- added a regression test for Windows CUDA DLL discovery
+
 ## v1.1.0 - 2026-09-01
 
 Recognition-quality and audio-routing release.

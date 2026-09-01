@@ -6,6 +6,24 @@ from operator_assist_runtime import recognition_engines
 
 
 class RecognitionEnginePlanTests(unittest.TestCase):
+    @unittest.skipUnless(recognition_engines.os.name == "nt", "Windows DLL loading test")
+    def test_prepare_cuda_runtime_uses_system_dll_search_as_fallback(self):
+        original_candidates = recognition_engines._candidate_cublas_bin_dirs
+        original_win_dll = recognition_engines.ctypes.WinDLL
+        loaded = []
+
+        try:
+            recognition_engines._candidate_cublas_bin_dirs = lambda: []
+            recognition_engines.ctypes.WinDLL = lambda dll_name: loaded.append(dll_name)
+
+            ready, _details = recognition_engines.prepare_cuda_runtime()
+
+            self.assertTrue(ready)
+            self.assertEqual(["cublasLt64_12.dll", "cublas64_12.dll"], loaded)
+        finally:
+            recognition_engines._candidate_cublas_bin_dirs = original_candidates
+            recognition_engines.ctypes.WinDLL = original_win_dll
+
     def test_precise_engine_attempt_plan_prefers_cuda_then_fallbacks_to_cpu(self):
         original_device = recognition_engines.preferred_precise_device
         original_supported = recognition_engines.supported_precise_compute_types
