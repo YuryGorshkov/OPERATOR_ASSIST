@@ -21,9 +21,11 @@ Responsibilities:
 
 - UI queue orchestration
 - background Vosk model loading
+- background Whisper engine loading with CUDA-first fallback planning
 - microphone or input capture through `sounddevice`
 - transcript accumulation
 - duplicate suppression
+- selectable channel routing modes
 - transcript export
 - prompt generation
 - clipboard or Chrome handoff helpers
@@ -139,7 +141,7 @@ This dual-path strategy is important because Windows audio environments vary a l
 
 1. The model loads in a background thread.
 2. Capture workers push audio chunks into bounded queues.
-3. Recognition workers decode Vosk results incrementally.
+3. Recognition workers decode Vosk results incrementally, or buffer the caller channel for optional Whisper `large-v3` decoding.
 4. Final and interim results are marshaled back through the UI queue.
 5. The UI updates separate panels for operator and speaker text.
 6. Final speaker text is additionally used as prompt input for AI workflows.

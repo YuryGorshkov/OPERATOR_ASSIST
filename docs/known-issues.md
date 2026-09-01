@@ -4,9 +4,9 @@ This document lists the current limitations that are important to mention during
 
 ## Audio And Recognition
 
-- Offline Russian recognition quality still depends heavily on microphone quality, routing quality, and the selected Vosk model size.
+- Offline Russian recognition quality still depends on source quality and routing; Vosk favors low latency while Whisper `large-v3` favors accuracy and requires more memory.
 - Domain vocabulary is improved mainly through deterministic post-processing, not through model fine-tuning.
-- Cross-talk can still happen on misconfigured machines when the caller channel captures the microphone path indirectly.
+- Acoustic cross-talk can still happen when loud headphones physically spill into a nearby microphone; delayed duplicate filtering reduces repeated text but cannot reconstruct perfectly separated audio.
 - Real-world audio regression tests with saved fixtures are not yet part of the automated suite.
 
 ## Platform Scope

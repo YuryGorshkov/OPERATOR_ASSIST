@@ -7,7 +7,7 @@
 [![CI](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml/badge.svg)](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml)
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3.10-3776AB?logo=python&logoColor=white)
-![Speech](https://img.shields.io/badge/STT-Vosk%20offline-2EA44F)
+![Speech](https://img.shields.io/badge/STT-Vosk%20%2B%20Whisper-2EA44F)
 ![Audio](https://img.shields.io/badge/audio-WASAPI%20loopback%20%2F%20Stereo%20Mix-8A2BE2)
 ![UI](https://img.shields.io/badge/UI-Tkinter%20desktop-F59E0B)
 
@@ -19,7 +19,7 @@ Windows-first desktop assistant for dual-stream transcription: one channel for t
 | --- | --- | --- |
 | Desktop runtime | Tkinter app with separate operator and speaker panes | Primary |
 | Audio capture | Microphone plus WASAPI loopback or fallback recording input | Primary |
-| Speech recognition | Local Vosk models for Russian speech | Primary |
+| Speech recognition | Fast local Vosk plus optional `faster-whisper large-v3` | Primary |
 | Prompt handoff | Copy/export workflow plus optional Chrome injection experiment | Optional |
 | Browser surfaces | Voice notes and single-stream speaker prototypes | Prototype |
 | Distribution | Portable zip, installer build, GitHub Releases, CI | Available |
@@ -43,7 +43,9 @@ The repository focuses on the engineering needed to make that workflow usable on
 ## Core Capabilities
 
 - Simultaneous transcription of microphone audio and speaker or system audio into separate panels.
-- Offline Russian speech recognition using local Vosk models.
+- Offline Russian speech recognition using fast Vosk or high-accuracy `faster-whisper large-v3` for the caller channel.
+- Selectable capture modes for both channels, caller only, or operator only.
+- Live source probe that identifies the input currently carrying system audio.
 - Automatic WASAPI loopback discovery with fallback to classic recording inputs such as Stereo Mix.
 - First-launch readiness checks for model presence, source selection, and saved settings.
 - Local transcript copy, TXT export, and logging.
@@ -55,7 +57,7 @@ The repository focuses on the engineering needed to make that workflow usable on
 ## Why The Design Looks Like This
 
 - Windows audio routing varies heavily across machines, so the app exposes capture diagnostics instead of assuming one fixed hardware path.
-- Local speech recognition keeps the main workflow usable without API quotas or network dependency.
+- Local speech recognition keeps the main workflow usable without API quotas; Vosk favors startup speed while Whisper favors accuracy.
 - Technical vocabulary correction is handled as deterministic post-processing rather than pretending raw STT is always enough.
 - Experimental AI handoff stays separate from the core desktop runtime so the stable path remains understandable and testable.
 
@@ -119,7 +121,8 @@ OPERATOR_ASSIST/
 2. Download either `OPERATOR_ASSIST-Setup-<version>.exe` or `OPERATOR_ASSIST-portable-<version>.zip`.
 3. Install or extract the package.
 4. Place one supported Vosk model into `data/models/`.
-5. Start the app and use the readiness block to confirm both audio sources.
+5. Start the app, choose the required channels, and use `Найти звук` while test audio is playing if the system route is unclear.
+6. Choose `Точный (Whisper)` for maximum caller accuracy; its model cache is prepared on first use.
 
 More detail: [docs/install-from-release.md](docs/install-from-release.md)
 
@@ -273,7 +276,7 @@ Some loopback dependencies are vendored because the Windows audio path is one of
 ## Current Constraints
 
 - Primary desktop workflow is Windows-first.
-- Vosk models are external runtime assets and are not bundled in git or releases.
+- Vosk and Whisper model data are external runtime assets and are not bundled in git or releases.
 - The Chrome bridge is optional and experimental.
 - Automated checks cover deterministic logic and repository contracts, not real audio fixtures.
 - Windows binaries are unsigned, so SmartScreen warnings are still possible on fresh machines.

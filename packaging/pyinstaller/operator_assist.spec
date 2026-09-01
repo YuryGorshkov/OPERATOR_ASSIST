@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 project_root = Path.cwd()
@@ -19,16 +19,28 @@ datas = [
 ]
 datas += collect_data_files("vosk")
 datas += collect_data_files("soundcard")
+datas += collect_data_files("faster_whisper")
+datas += collect_data_files("ctranslate2")
+
+binaries = []
+binaries += collect_dynamic_libs("ctranslate2")
 
 hiddenimports = [
     "operator_assist_chat_bridge_v5_base",
     "operator_assist_chat_bridge_v3_base",
     "operator_assist_runtime.base_runtime",
+    "operator_assist_runtime.audio_diagnostics",
+    "operator_assist_runtime.audio_processing",
+    "operator_assist_runtime.recognition_engines",
     "operator_assist_runtime.runtime_paths",
+    "operator_assist_runtime.session_routing",
+    "operator_assist_runtime.startup_readiness",
     "operator_assist_runtime.technical_terms",
     "operator_assist_runtime.text_utils",
 ]
 hiddenimports += collect_submodules("soundcard")
+hiddenimports += collect_submodules("faster_whisper")
+hiddenimports += collect_submodules("ctranslate2")
 
 hookspath = [
     str(project_root / "vendor" / "soundcard" / "__pyinstaller"),
@@ -45,7 +57,7 @@ excludes = [
 a = Analysis(
     [str(project_root / "operator_assist.py")],
     pathex=[str(project_root), str(project_root / "vendor")],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=hookspath,

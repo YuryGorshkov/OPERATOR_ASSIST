@@ -57,6 +57,21 @@ class AudioDiagnosticsTests(unittest.TestCase):
         self.assertIn("оба канала", message.lower())
         self.assertIn("дублируются", message.lower())
 
+    def test_speaker_only_mode_reports_a_healthy_route(self):
+        message = build_route_diagnostic_message(
+            workers_active=True,
+            mic_mode_label="не используется",
+            speaker_mode_label="запасной вход",
+            mic_selected=False,
+            speaker_selected=True,
+            mic_enabled=False,
+            speaker_enabled=True,
+            speaker_has_live_signal=True,
+        )
+
+        self.assertIn("только собеседник", message.lower())
+        self.assertIn("работает", message.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

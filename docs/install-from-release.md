@@ -27,7 +27,7 @@ Both assets are built from the same release pipeline. The installer is more conv
 
 The packaged app keeps user-editable and writable files out of the top-level application root:
 
-- `data/models/` for the Vosk model,
+- `data/models/` for Vosk and the local Whisper cache,
 - `data/logs/` for runtime logs,
 - `data/transcripts/` for exported transcripts,
 - `config/technical_terms.json` for editable term replacements,
@@ -47,16 +47,17 @@ The packaged app still expects an external Russian Vosk model. Before first succ
 
 The model must be extracted as a folder, not left inside a zip archive.
 
+The optional `Точный (Whisper)` caller mode uses `large-v3`. Its cache is stored under `data/models/whisper-cache/`; the first preparation can take noticeably longer than later starts. When CUDA is available, the app tries a supported GPU compute mode first and falls back to CPU if necessary.
+
 ## First Launch Checklist
 
 On first start, the app should guide the operator through readiness checks:
 
 - model detected,
-- microphone selected,
-- caller or system-audio source selected,
+- every source required by the selected capture mode is selected,
 - settings path available.
 
-Use the readiness actions to open the models folder, re-check the environment, and confirm the final routing before pressing `Старт`.
+Choose `Оба канала`, `Только собеседник`, or `Только оператор`. Use `Найти звук` while audio is playing to probe the available caller routes, then confirm the final routing before pressing `Старт`.
 
 ## If Windows Shows A Trust Warning
 

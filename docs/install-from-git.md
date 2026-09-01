@@ -42,6 +42,10 @@ By default this setup:
 4. ensures `models/`, `logs/`, and `transcripts/` exist,
 5. runs `scripts/Check-Environment.ps1`.
 
+The default dependency set now also includes the optional high-accuracy speaker path based on `faster-whisper`.
+That means a clean source install is enough to expose the precise mode in the UI; the first precise launch may still
+download the Whisper model itself into `models/whisper-cache`.
+
 ## Add A Speech Model
 
 The app still expects a local Russian Vosk model in one of these folders:
@@ -61,6 +65,8 @@ Run-Operator-Assist.cmd
 ```
 
 The launcher now prefers the project-local `.venv` automatically if it exists, so the source installation stays self-contained.
+
+If you choose the precise speaker mode, expect the first model load to be noticeably slower than the normal Vosk path.
 
 ## If You Want To Re-Check The Environment
 

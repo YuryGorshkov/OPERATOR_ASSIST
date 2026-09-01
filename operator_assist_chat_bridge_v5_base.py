@@ -5,9 +5,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from operator_assist_runtime.recognition_engines import (
+    FasterWhisperBufferedEngine,
+    load_precise_engine_bundle,
+)
 from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
+from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
+from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "2026-07-09-chat5"
+WRAPPER_VERSION = "1.1.0"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -25,13 +31,11 @@ for vendor_dir in VENDOR_CANDIDATES:
             sys.path.insert(0, vendor_text)
 
 try:
-    import numpy as _np
     import soundcard as _soundcard
 
     LOOPBACK_AVAILABLE = True
     LOOPBACK_IMPORT_ERROR = ""
 except Exception as error:
-    _np = None
     _soundcard = None
     LOOPBACK_AVAILABLE = False
     LOOPBACK_IMPORT_ERROR = str(error)
@@ -161,10 +165,11 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
             self.thread = None
 
         runtime.LOGGER.info(
-            "[%s] WASAPI loopback worker stopped. chunks=%s drops=%s callback_warnings=%s",
+            "[%s] WASAPI loopback worker stopped. chunks=%s drops=%s suppressed=%s callback_warnings=%s",
             self.label,
             self.chunk_count,
             self.drop_count,
+            self.suppressed_chunk_count,
             self.callback_warning_count,
         )
         self.ui_queue.put(("status", self.label, "Остановлено"))
@@ -205,6 +210,12 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
         if not self.stop_event.is_set() and chunk:
             self.chunk_count += 1
             self._emit_level(chunk)
+            chunk = self._process_chunk_for_recognition(chunk)
+            if not chunk:
+                self.suppressed_chunk_count += 1
+                self._queue_gap_marker()
+                return
+            self.gap_marker_queued = False
             try:
                 self.audio_queue.put_nowait(chunk)
             except runtime.queue.Full:
@@ -232,19 +243,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
         if frames is None:
             return b""
 
-        samples = _np.asarray(frames, dtype=_np.float32)
-        if samples.size == 0:
-            return b""
-
-        if samples.ndim == 2:
-            if samples.shape[1] > 1:
-                samples = samples.mean(axis=1, dtype=_np.float32)
-            else:
-                samples = samples[:, 0]
-
-        samples = _np.nan_to_num(samples, copy=False)
-        samples = _np.clip(samples, -1.0, 1.0)
-        return (samples * 32767.0).astype(_np.int16).tobytes()
+        return loopback_frames_to_pcm16(frames)
 
     def _capture_loop(self):
         runtime = _base_mod._base
@@ -281,6 +280,30 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
             message = "; ".join(errors) if errors else "Не удалось открыть WASAPI loopback."
             runtime.LOGGER.error("[%s] Loopback capture could not start: %s", self.label, message)
             self.ui_queue.put(("hint", f"{self.label}: {message}"))
+
+
+class PreciseSpeakerInputWorker(_base_mod._base.TranscriptionWorker):
+    def __init__(self, label, model, device_id, ui_queue, precise_bundle):
+        super().__init__(label, model, device_id, ui_queue)
+        self.precise_bundle = precise_bundle
+
+    def _create_recognition_engine(self):
+        return FasterWhisperBufferedEngine(
+            self.precise_bundle,
+            text_postprocessor=_base_mod._base.apply_technical_term_replacements,
+        )
+
+
+class PreciseLoopbackTranscriptionWorker(LoopbackTranscriptionWorker):
+    def __init__(self, label, model, source, ui_queue, precise_bundle):
+        super().__init__(label, model, source, ui_queue)
+        self.precise_bundle = precise_bundle
+
+    def _create_recognition_engine(self):
+        return FasterWhisperBufferedEngine(
+            self.precise_bundle,
+            text_postprocessor=_base_mod._base.apply_technical_term_replacements,
+        )
 
 
 class OperatorAssistApp(_base_mod.OperatorAssistApp):
@@ -357,11 +380,29 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         runtime.tk.Label(controls, text="Мой микрофон", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w")
         runtime.tk.Label(controls, text="Собеседник / системный звук", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=0, column=1, sticky="w", padx=(16, 0))
+        runtime.tk.Label(controls, text="Активные каналы", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=(12, 0))
+        runtime.tk.Label(controls, text="Режим собеседника", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
 
         self.mic_combo = runtime.ttk.Combobox(controls, textvariable=self.mic_device_var, state="readonly", width=48)
         self.mic_combo.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.speaker_combo = runtime.ttk.Combobox(controls, textvariable=self.speaker_device_var, state="readonly", width=48)
         self.speaker_combo.grid(row=1, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self.capture_mode_combo = runtime.ttk.Combobox(
+            controls,
+            textvariable=self.capture_mode_var,
+            state="readonly",
+            width=48,
+        )
+        self.capture_mode_combo.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        self.capture_mode_combo.bind("<<ComboboxSelected>>", self._on_capture_mode_selected)
+        self.speaker_mode_combo = runtime.ttk.Combobox(
+            controls,
+            textvariable=self.speaker_recognition_mode_var,
+            state="readonly",
+            width=48,
+        )
+        self.speaker_mode_combo.grid(row=3, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self.speaker_mode_combo.bind("<<ComboboxSelected>>", self._on_speaker_mode_selected)
         self._bind_device_selection_diagnostics()
 
         buttons = runtime.tk.Frame(controls, bg="white")
@@ -371,7 +412,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.start_button.pack(side="left", padx=(0, 8))
         self.stop_button = runtime.tk.Button(buttons, text="Стоп", command=self.stop_transcription, bg="#e7eef5", fg="#17324d", relief="flat", padx=16, pady=10, state="disabled")
         self.stop_button.pack(side="left", padx=(0, 8))
-        runtime.tk.Button(buttons, text="Обновить устройства", command=self.refresh_devices, bg="#e7eef5", fg="#17324d", relief="flat", padx=16, pady=10).pack(side="left")
+        self.refresh_devices_button = runtime.tk.Button(buttons, text="Обновить устройства", command=self.refresh_devices, bg="#e7eef5", fg="#17324d", relief="flat", padx=16, pady=10)
+        self.refresh_devices_button.pack(side="left", padx=(0, 8))
+        self.source_probe_button = runtime.tk.Button(buttons, text="Найти звук", command=self.probe_speaker_sources, bg="#fff4df", fg="#5b4611", relief="flat", padx=16, pady=10)
+        self.source_probe_button.pack(side="left")
 
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=1)
@@ -530,6 +574,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         self.mic_combo["values"] = mic_labels
         self.speaker_combo["values"] = speaker_labels
+        if hasattr(self, "capture_mode_combo"):
+            self.capture_mode_combo["values"] = self._capture_mode_labels()
+        if hasattr(self, "speaker_mode_combo"):
+            self.speaker_mode_combo["values"] = self._speaker_mode_labels()
 
         if not mic_labels:
             runtime.LOGGER.warning("No microphone devices available")
@@ -554,11 +602,15 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         self.mic_device_var.set(mic_default or mic_labels[0])
         self.speaker_device_var.set(speaker_default or speaker_labels[0])
+        self._apply_default_capture_mode()
+        self._apply_default_speaker_mode()
 
         runtime.LOGGER.info(
-            "Default devices selected. mic=%s speaker=%s",
+            "Default devices selected. mic=%s speaker=%s capture_mode=%s speaker_mode=%s",
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
+            self._current_capture_mode_key(),
+            self._current_speaker_mode_key(),
         )
         self._refresh_audio_diagnostics()
 
@@ -596,6 +648,203 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                 return source
         return None
 
+    def probe_speaker_sources(self):
+        runtime = _base_mod._base
+        if self.workers:
+            runtime.messagebox.showinfo(runtime.APP_TITLE, "Остановите текущий сеанс перед проверкой источников.")
+            return
+        if self.source_probe_running:
+            return
+        if not self.speaker_sources:
+            runtime.messagebox.showerror(runtime.APP_TITLE, "Источники системного звука не найдены.")
+            return
+
+        self.source_probe_running = True
+        self.status_var.set("Ищу системный звук")
+        self.hint_var.set("Оставьте аудио включенным. Проверяю доступные источники по живому уровню сигнала.")
+        self._set_audio_controls_running_state(False)
+        self._update_start_button_state()
+
+        sources = [dict(source) for source in self.speaker_sources]
+        thread = runtime.threading.Thread(
+            target=self._probe_speaker_sources_worker,
+            args=(sources,),
+            daemon=True,
+            name="SpeakerSourceProbe",
+        )
+        thread.start()
+
+    def _probe_source_level(self, source, *, duration_seconds=0.55):
+        runtime = _base_mod._base
+        samplerate = int(source.get("default_samplerate") or 48000)
+        frame_count = max(1024, int(samplerate * duration_seconds))
+
+        if source["kind"] == "loopback":
+            microphone = None
+            for candidate in _soundcard.all_microphones(include_loopback=True):
+                if getattr(candidate, "id", None) == source.get("id"):
+                    microphone = candidate
+                    break
+            if microphone is None:
+                raise RuntimeError(f"Loopback source not found: {source.get('name')}")
+            with microphone.recorder(samplerate=samplerate, channels=max(1, int(source.get("channels") or 2))) as recorder:
+                frames = recorder.record(numframes=frame_count)
+            chunk = loopback_frames_to_pcm16(frames)
+        else:
+            frames = runtime.sd.rec(
+                frame_count,
+                samplerate=samplerate,
+                channels=1,
+                dtype="int16",
+                device=source["device_id"],
+                blocking=True,
+            )
+            chunk = frames.tobytes()
+
+        return runtime.pcm16_level_percent(chunk)
+
+    def _probe_speaker_sources_worker(self, sources):
+        runtime = _base_mod._base
+        results = []
+        total = len(sources)
+        for index, source in enumerate(sources, start=1):
+            self.ui_queue.put(("source_probe_progress", index, total, source["label"]))
+            result = {"label": source["label"], "level_percent": 0, "error": ""}
+            try:
+                result["level_percent"] = self._probe_source_level(source)
+            except Exception as error:
+                result["error"] = str(error)
+                runtime.LOGGER.warning("Audio source probe failed. source=%s error=%s", source["label"], error)
+            results.append(result)
+
+        best = select_best_signal_source(results)
+        runtime.LOGGER.info("Audio source probe completed. results=%s best=%s", results, best)
+        self.ui_queue.put(("source_probe_complete", results, best))
+
+    def _finish_source_probe(self, results, best):
+        self.source_probe_running = False
+        if best is None:
+            self.status_var.set("Сигнал не найден")
+            self.hint_var.set("Ни один источник не дал устойчивого сигнала. Включите воспроизведение и повторите проверку.")
+        else:
+            self.speaker_device_var.set(best["label"])
+            self.status_var.set("Источник найден")
+            self.hint_var.set(f"Выбран рабочий источник: {best['label']} ({best['level_percent']}%).")
+            self._save_settings()
+        self._set_audio_controls_running_state(False)
+        self._refresh_audio_diagnostics()
+
+    def _ensure_precise_speaker_bundle(self):
+        runtime = _base_mod._base
+        if self.precise_engine_bundle is not None:
+            return self.precise_engine_bundle
+
+        if self.precise_engine_loading:
+            return None
+
+        self.precise_engine_loading = True
+        self.pending_precise_start = True
+        self.precise_engine_load_started_at = runtime.time.monotonic()
+        self.status_var.set("Загружаю точный режим")
+        self.hint_var.set(
+            "Whisper загружается в фоне. Время зависит от видеокарты и может занять несколько минут."
+        )
+        self._set_audio_controls_running_state(True)
+        self._update_start_button_state()
+
+        loader = runtime.threading.Thread(
+            target=self._load_precise_engine_worker,
+            daemon=True,
+            name="PreciseEngineLoader",
+        )
+        loader.start()
+        return None
+
+    def _load_precise_engine_worker(self):
+        runtime = _base_mod._base
+
+        def report_progress(model_name, device, compute_type, attempt_index, attempt_total):
+            self.ui_queue.put(
+                (
+                    "precise_load_progress",
+                    model_name,
+                    device,
+                    compute_type,
+                    attempt_index,
+                    attempt_total,
+                )
+            )
+
+        started_at = runtime.time.perf_counter()
+        try:
+            bundle = load_precise_engine_bundle(
+                runtime.MODELS_DIR,
+                logger=runtime.LOGGER,
+                progress_callback=report_progress,
+            )
+        except Exception as error:
+            runtime.LOGGER.exception("Precise speaker engine loading failed")
+            self.ui_queue.put(("precise_load_failed", str(error)))
+            return
+
+        duration = runtime.time.perf_counter() - started_at
+        self.ui_queue.put(("precise_load_complete", bundle, duration))
+
+    def _finish_precise_engine_loading(self, bundle, duration):
+        runtime = _base_mod._base
+        self.precise_engine_bundle = bundle
+        self.precise_engine_loading = False
+        runtime.LOGGER.info(
+            "Precise speaker engine ready in %.2f seconds. model=%s device=%s compute_type=%s cache=%s",
+            duration,
+            bundle.model_name,
+            bundle.device,
+            bundle.compute_type,
+            bundle.download_root,
+        )
+        self.status_var.set("Точный режим готов")
+        self.hint_var.set(
+            f"Whisper {bundle.model_name} загружен за {duration:.1f} с "
+            f"({bundle.device}/{bundle.compute_type}). Запускаю распознавание."
+        )
+        should_start = self.pending_precise_start
+        self.pending_precise_start = False
+        self._set_audio_controls_running_state(False)
+        self._update_start_button_state()
+        if should_start:
+            self.root.after(50, self.start_transcription)
+
+    def _fail_precise_engine_loading(self, error_text):
+        runtime = _base_mod._base
+        self.precise_engine_loading = False
+        self.pending_precise_start = False
+        self.status_var.set("Точный режим не загрузился")
+        self.hint_var.set("Whisper не запустился. Стабильный Vosk-режим остался доступен.")
+        self._set_audio_controls_running_state(False)
+        self._update_start_button_state()
+        runtime.messagebox.showerror(
+            runtime.APP_TITLE,
+            "Не удалось загрузить точный режим Whisper.\n\n"
+            f"{error_text}\n\n"
+            "Можно выбрать стабильный режим Vosk и продолжить работу.",
+        )
+
+    def _build_speaker_worker(self, speaker_source):
+        runtime = _base_mod._base
+        mode_key = self._current_speaker_mode_key()
+
+        if mode_key == runtime.SPEAKER_MODE_PRECISE:
+            precise_bundle = self._ensure_precise_speaker_bundle()
+            if precise_bundle is None:
+                raise RuntimeError("Точный режим Whisper еще загружается.")
+            if speaker_source["kind"] == "loopback":
+                return PreciseLoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue, precise_bundle)
+            return PreciseSpeakerInputWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue, precise_bundle)
+
+        if speaker_source["kind"] == "loopback":
+            return LoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue)
+        return runtime.TranscriptionWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue)
+
     def start_transcription(self):
         runtime = _base_mod._base
 
@@ -609,52 +858,94 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             runtime.messagebox.showerror(runtime.APP_TITLE, "Модель распознавания не загружена.")
             return
 
-        mic_device = self._selected_mic_device()
-        speaker_source = self._selected_speaker_source()
-        if mic_device is None or speaker_source is None:
+        mic_enabled = self._capture_mic_enabled()
+        speaker_enabled = self._capture_speaker_enabled()
+        mic_device = self._selected_mic_device() if mic_enabled else None
+        speaker_source = self._selected_speaker_source() if speaker_enabled else None
+        if (mic_enabled and mic_device is None) or (speaker_enabled and speaker_source is None):
             runtime.LOGGER.error("Selected devices are missing. mic=%s speaker=%s", self.mic_device_var.get(), self.speaker_device_var.get())
-            runtime.messagebox.showerror(runtime.APP_TITLE, "Выберите микрофон и источник звука собеседника.")
+            runtime.messagebox.showerror(runtime.APP_TITLE, "Выберите источники, необходимые для текущего режима записи.")
             return
 
+        speaker_mode_key = self._current_speaker_mode_key()
+        if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE:
+            precise_available, precise_message = self._precise_mode_status()
+            if not precise_available:
+                runtime.LOGGER.error("Precise speaker mode requested but unavailable: %s", precise_message)
+                runtime.messagebox.showerror(
+                    runtime.APP_TITLE,
+                    "Точный режим собеседника сейчас недоступен.\n\n"
+                    f"{precise_message}",
+                )
+                return
+            if self.precise_engine_bundle is None:
+                self._ensure_precise_speaker_bundle()
+                return
+
         runtime.LOGGER.info(
-            "Starting transcription. mic=%s speaker=%s model=%s",
+            "Starting transcription. capture_mode=%s mic=%s speaker=%s speaker_mode=%s model=%s",
+            self._current_capture_mode_key(),
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
+            speaker_mode_key,
             self._current_model_name(),
         )
 
         self.stop_transcription()
 
+        mic_route_info = self._selected_mic_source_info() if mic_enabled else None
+        speaker_route_info = self._selected_speaker_source_info() if speaker_enabled else None
+
         try:
-            self.workers["me"] = runtime.TranscriptionWorker("me", self.model, mic_device["id"], self.ui_queue)
-
-            if speaker_source["kind"] == "loopback":
-                self.workers["speaker"] = LoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue)
-            else:
-                self.workers["speaker"] = runtime.TranscriptionWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue)
-
-            self.workers["me"].start()
-            self.workers["speaker"].start()
+            if mic_enabled:
+                self.workers["me"] = runtime.TranscriptionWorker("me", self.model, mic_device["id"], self.ui_queue)
+            if speaker_enabled:
+                self.workers["speaker"] = self._build_speaker_worker(speaker_source)
+            for worker in self.workers.values():
+                worker.start()
         except Exception as error:
             runtime.LOGGER.exception("Failed to start transcription workers")
             self.stop_transcription()
             runtime.messagebox.showerror(runtime.APP_TITLE, f"Не удалось запустить распознавание:\n{error}")
             return
 
-        self.status_var.set("Идет одновременное распознавание")
-        self.hint_var.set(
-            f"Активная модель: {self._current_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
-        )
+        self.active_route_info = {}
+        if mic_route_info is not None:
+            self.active_route_info["mic"] = mic_route_info
+        if speaker_route_info is not None:
+            self.active_route_info["speaker"] = speaker_route_info
+
+        self.status_var.set("Распознавание запущено")
+        if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE and self.precise_engine_bundle is not None:
+            self.hint_var.set(
+                f"Активная модель Vosk: {self._current_model_name()}. "
+                f"Собеседник идет через {speaker_source['mode_label']} и точный Whisper "
+                f"({self.precise_engine_bundle.device}, {self.precise_engine_bundle.compute_type}, "
+                f"{self.precise_engine_bundle.model_name})."
+            )
+        elif speaker_enabled:
+            self.hint_var.set(
+                f"Активная модель: {self._current_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
+            )
+        else:
+            self.hint_var.set(f"Активная модель: {self._current_model_name()}. Работает только канал оператора.")
+        self.audio_session_started_at = runtime.time.monotonic()
+        self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
+        self.pending_mic_finals.clear()
         self._refresh_audio_diagnostics()
-        self.start_button.configure(state="disabled")
+        self._set_audio_controls_running_state(True)
+        self._update_start_button_state()
         self.stop_button.configure(state="normal")
         self._save_settings()
 
     def refresh_devices(self):
         runtime = _base_mod._base
+        if self.workers or self.source_probe_running or self.precise_engine_loading:
+            runtime.messagebox.showinfo(runtime.APP_TITLE, "Остановите сеанс или дождитесь завершения проверки.")
+            return
         runtime.LOGGER.info("Refreshing device list")
         self.devices = self._load_input_devices()
         self._apply_default_devices()

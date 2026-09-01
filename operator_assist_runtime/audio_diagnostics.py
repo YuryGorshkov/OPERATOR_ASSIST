@@ -22,6 +22,8 @@ def build_route_diagnostic_message(
     speaker_mode_label,
     mic_selected,
     speaker_selected,
+    mic_enabled=True,
+    speaker_enabled=True,
     mic_has_live_signal=False,
     speaker_has_live_signal=False,
     seconds_since_start=0.0,
@@ -30,6 +32,25 @@ def build_route_diagnostic_message(
     """Build a practical human-readable routing and signal hint."""
     mic_mode_label = (mic_mode_label or "вход").strip() or "вход"
     speaker_mode_label = (speaker_mode_label or "вход").strip() or "вход"
+
+    if not mic_enabled and not speaker_enabled:
+        return "Диагностика: включите хотя бы один канал записи."
+    if not mic_enabled:
+        if not speaker_selected:
+            return "Диагностика: выберите источник собеседника или системного звука."
+        if workers_active and seconds_since_start >= no_signal_grace_sec and not speaker_has_live_signal:
+            return "Диагностика: канал собеседника пока без сигнала. Запустите звук или выберите другой источник."
+        if workers_active and speaker_has_live_signal:
+            return "Диагностика: режим «Только собеседник» работает, системный звук поступает."
+        return f"Маршрут выбран: только собеседник -> {speaker_mode_label}."
+    if not speaker_enabled:
+        if not mic_selected:
+            return "Диагностика: выберите микрофон оператора."
+        if workers_active and seconds_since_start >= no_signal_grace_sec and not mic_has_live_signal:
+            return "Диагностика: микрофон оператора пока без сигнала. Проверьте Mute и уровень Windows."
+        if workers_active and mic_has_live_signal:
+            return "Диагностика: режим «Только оператор» работает, микрофон получает сигнал."
+        return f"Маршрут выбран: только оператор -> {mic_mode_label}."
 
     if not mic_selected and not speaker_selected:
         return "Диагностика: выберите микрофон оператора и источник собеседника, затем запустите распознавание."

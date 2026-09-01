@@ -250,7 +250,8 @@ $modelsReadme = @(
     "- models\vosk-model-ru-0.22",
     "- models\vosk-model-small-ru-0.22",
     "",
-    "The release bundle intentionally does not ship large speech models."
+    "The release bundle intentionally does not ship large speech models.",
+    "Whisper large-v3 cache is created under models\whisper-cache when precise mode is prepared."
 )
 Set-Content -LiteralPath (Join-Path $portableRoot "data\models\README.txt") -Value $modelsReadme -Encoding UTF8
 
@@ -261,6 +262,8 @@ $quickStart = @(
     "2. Start OPERATOR_ASSIST.exe.",
     "3. If the app still reports a missing model, click 'Папка models' and then 'Проверить снова'.",
     "4. Logs are written to .\data\logs and saved transcripts to .\data\transcripts.",
+    "5. For caller-only playback tests choose 'Только собеседник'; use 'Найти звук' while audio is playing.",
+    "6. 'Точный (Whisper)' favors accuracy and can use CUDA; 'Стабильный (Vosk)' starts faster.",
     "",
     "Editable helper files:",
     "- .\config\technical_terms.json",
