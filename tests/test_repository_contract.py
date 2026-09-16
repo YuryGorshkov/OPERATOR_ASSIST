@@ -87,11 +87,18 @@ class RepositoryContractTests(unittest.TestCase):
             PROJECT_ROOT / "docs" / "install-from-git.md",
             PROJECT_ROOT / "docs" / "install-from-release.md",
             PROJECT_ROOT / "docs" / "known-issues.md",
+            PROJECT_ROOT / "docs" / "recognition-lab.md",
             PROJECT_ROOT / "docs" / "smoke-checklist.md",
         ]
 
         missing = [str(path) for path in expected_files if not path.exists()]
         self.assertEqual([], missing, f"Missing key documentation files: {missing}")
+
+    def test_recognition_lab_keeps_private_data_out_of_git(self):
+        ignored = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        for path in ("/asr-lab-data/", "/asr-lab-reports/", "/asr-lab-checkpoints/",
+                     "/examples/recognition-lab/audio/", "/examples/recognition-lab/references/"):
+            self.assertIn(path, ignored)
 
 
 if __name__ == "__main__":

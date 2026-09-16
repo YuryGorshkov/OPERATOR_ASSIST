@@ -252,6 +252,9 @@ class OperatorAssistApp(_base.OperatorAssistApp):
         payload = {
             "mic_device": self.mic_device_var.get(),
             "speaker_device": self.speaker_device_var.get(),
+            "capture_mode": self._current_capture_mode_key(),
+            "speaker_recognition_mode": self._current_speaker_mode_key(),
+            "precise_device": self._current_precise_device_key(),
             "chrome_window_keyword": self.chrome_window_var.get().strip(),
             "chrome_auto_enter": bool(self.auto_enter_var.get()),
             "operator_prompt": self._operator_prompt_value(),

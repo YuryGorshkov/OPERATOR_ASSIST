@@ -3,9 +3,11 @@
 import ctypes
 from dataclasses import dataclass
 import json
+import logging
 import os
 from pathlib import Path
 import sys
+import time
 
 try:
     import numpy as np
@@ -31,6 +33,8 @@ from vosk import KaldiRecognizer
 
 
 DEFAULT_PRECISE_MODEL_NAME = "large-v3"
+PRECISE_DEVICE_GPU = "gpu"
+PRECISE_DEVICE_CPU = "cpu"
 _CUDA_DLL_DIRECTORY_HANDLES = []
 
 
@@ -155,9 +159,15 @@ def supported_precise_compute_types(device):
         return set()
 
 
-def precise_engine_attempt_plan():
-    device = preferred_precise_device()
-    if device == "cuda":
+def precise_engine_attempt_plan(device_preference=None):
+    if device_preference not in (None, PRECISE_DEVICE_GPU, PRECISE_DEVICE_CPU):
+        raise ValueError(f"Неизвестный вычислитель Whisper: {device_preference}")
+
+    use_cuda = (
+        device_preference != PRECISE_DEVICE_CPU
+        and preferred_precise_device() == "cuda"
+    )
+    if use_cuda:
         cuda_supported = supported_precise_compute_types("cuda")
         cuda_order = ("float16", "int8_float16", "int8", "int8_float32", "float32")
         cuda_attempts = [
@@ -183,6 +193,7 @@ def load_precise_engine_bundle(
     *,
     logger,
     model_name=DEFAULT_PRECISE_MODEL_NAME,
+    device_preference=None,
     progress_callback=None,
 ):
     if not precise_engine_available():
@@ -193,7 +204,7 @@ def load_precise_engine_bundle(
     download_root.mkdir(parents=True, exist_ok=True)
 
     errors = []
-    attempt_plan = precise_engine_attempt_plan()
+    attempt_plan = precise_engine_attempt_plan(device_preference)
     if any(device == "cuda" for device, _compute_type in attempt_plan):
         cuda_ready, cuda_details = prepare_cuda_runtime(logger=logger)
         if not cuda_ready:
@@ -287,8 +298,9 @@ class FasterWhisperBufferedEngine:
         *,
         text_postprocessor,
         sample_rate=16000,
-        flush_after_seconds=3.2,
-        min_segment_seconds=0.55,
+        flush_after_seconds=6.0,
+        min_segment_seconds=0.7,
+        context_chars=320,
     ):
         self._bundle = bundle
         self._text_postprocessor = text_postprocessor
@@ -296,6 +308,9 @@ class FasterWhisperBufferedEngine:
         self._buffer = bytearray()
         self._flush_after_bytes = int(sample_rate * 2 * flush_after_seconds)
         self._min_segment_bytes = int(sample_rate * 2 * min_segment_seconds)
+        self._context_chars = max(0, int(context_chars))
+        self._previous_text = ""
+        self._logger = logging.getLogger("operator_assist")
 
     def consume_chunk(self, chunk):
         if chunk:
@@ -326,6 +341,8 @@ class FasterWhisperBufferedEngine:
             / 32768.0
         )
         self._buffer.clear()
+        audio_seconds = len(audio) / float(self._sample_rate)
+        started_at = time.perf_counter()
 
         segments, _info = self._bundle.model.transcribe(
             audio,
@@ -333,13 +350,24 @@ class FasterWhisperBufferedEngine:
             task="transcribe",
             beam_size=5,
             best_of=5,
-            condition_on_previous_text=False,
+            condition_on_previous_text=True,
+            initial_prompt=self._previous_text or None,
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 350},
             word_timestamps=False,
         )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = self._text_postprocessor(text.strip(), log_changes=True)
+        elapsed = time.perf_counter() - started_at
+        real_time_factor = elapsed / audio_seconds if audio_seconds else 0.0
+        self._logger.info(
+            "Whisper segment processed. audio=%.2fs inference=%.2fs rtf=%.2f chars=%s",
+            audio_seconds,
+            elapsed,
+            real_time_factor,
+            len(text),
+        )
         if text:
+            self._previous_text = text[-self._context_chars :] if self._context_chars else ""
             return [RecognitionUpdate("final", text)]
         return []

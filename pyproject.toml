@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "operator-assist"
-version = "1.1.1"
+version = "1.2.0"
 description = "Windows-first dual-stream speech transcription and operator assistance toolkit."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,4 +57,4 @@ build = [
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["operator_assist_runtime*"]
+include = ["operator_assist_runtime*", "asr_lab*"]

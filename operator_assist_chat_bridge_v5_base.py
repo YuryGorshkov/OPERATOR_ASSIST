@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.1.1"
+WRAPPER_VERSION = "1.2.0"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -382,6 +382,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         runtime.tk.Label(controls, text="Собеседник / системный звук", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=0, column=1, sticky="w", padx=(16, 0))
         runtime.tk.Label(controls, text="Активные каналы", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=(12, 0))
         runtime.tk.Label(controls, text="Режим собеседника", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
+        runtime.tk.Label(controls, text="Вычислитель точного режима", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=4, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
 
         self.mic_combo = runtime.ttk.Combobox(controls, textvariable=self.mic_device_var, state="readonly", width=48)
         self.mic_combo.grid(row=1, column=0, sticky="ew", pady=(6, 0))
@@ -403,6 +404,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         )
         self.speaker_mode_combo.grid(row=3, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
         self.speaker_mode_combo.bind("<<ComboboxSelected>>", self._on_speaker_mode_selected)
+        self.precise_device_combo = runtime.ttk.Combobox(
+            controls,
+            textvariable=self.precise_device_var,
+            state="disabled",
+            width=48,
+        )
+        self.precise_device_combo.grid(row=5, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
+        self.precise_device_combo.bind("<<ComboboxSelected>>", self._on_precise_device_selected)
         self._bind_device_selection_diagnostics()
 
         buttons = runtime.tk.Frame(controls, bg="white")
@@ -578,6 +587,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.capture_mode_combo["values"] = self._capture_mode_labels()
         if hasattr(self, "speaker_mode_combo"):
             self.speaker_mode_combo["values"] = self._speaker_mode_labels()
+        if hasattr(self, "precise_device_combo"):
+            self.precise_device_combo["values"] = self._precise_device_labels()
 
         if not mic_labels:
             runtime.LOGGER.warning("No microphone devices available")
@@ -604,13 +615,16 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.speaker_device_var.set(speaker_default or speaker_labels[0])
         self._apply_default_capture_mode()
         self._apply_default_speaker_mode()
+        self._apply_default_precise_device()
+        self._set_audio_controls_running_state(False)
 
         runtime.LOGGER.info(
-            "Default devices selected. mic=%s speaker=%s capture_mode=%s speaker_mode=%s",
+            "Default devices selected. mic=%s speaker=%s capture_mode=%s speaker_mode=%s precise_device=%s",
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
             self._current_capture_mode_key(),
             self._current_speaker_mode_key(),
+            self._current_precise_device_key(),
         )
         self._refresh_audio_diagnostics()
 
@@ -734,33 +748,42 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self._set_audio_controls_running_state(False)
         self._refresh_audio_diagnostics()
 
-    def _ensure_precise_speaker_bundle(self):
+    def _ensure_precise_speaker_bundle(self, *, start_after_load=True):
         runtime = _base_mod._base
+        requested_device = self._current_precise_device_key()
         if self.precise_engine_bundle is not None:
-            return self.precise_engine_bundle
+            if self.precise_engine_loaded_device_preference == requested_device:
+                return self.precise_engine_bundle
+            self._reset_precise_speaker_bundle()
 
         if self.precise_engine_loading:
+            self.pending_precise_start = self.pending_precise_start or bool(start_after_load)
             return None
 
         self.precise_engine_loading = True
-        self.pending_precise_start = True
+        self.precise_engine_loading_device_preference = requested_device
+        self.pending_precise_start = bool(start_after_load)
         self.precise_engine_load_started_at = runtime.time.monotonic()
+        self._set_model_loading_context("Подготавливаю Whisper", "large-v3", 1, 1)
+        self._sync_model_loading_ui()
+        self._schedule_model_loading_tick()
         self.status_var.set("Загружаю точный режим")
         self.hint_var.set(
-            "Whisper загружается в фоне. Время зависит от видеокарты и может занять несколько минут."
+            f"Whisper загружается в фоне. Выбран вычислитель: {runtime.precise_device_label(requested_device)}."
         )
         self._set_audio_controls_running_state(True)
         self._update_start_button_state()
 
         loader = runtime.threading.Thread(
             target=self._load_precise_engine_worker,
+            args=(requested_device,),
             daemon=True,
             name="PreciseEngineLoader",
         )
         loader.start()
         return None
 
-    def _load_precise_engine_worker(self):
+    def _load_precise_engine_worker(self, device_preference):
         runtime = _base_mod._base
 
         def report_progress(model_name, device, compute_type, attempt_index, attempt_total):
@@ -780,6 +803,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             bundle = load_precise_engine_bundle(
                 runtime.MODELS_DIR,
                 logger=runtime.LOGGER,
+                device_preference=device_preference,
                 progress_callback=report_progress,
             )
         except Exception as error:
@@ -792,8 +816,13 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
     def _finish_precise_engine_loading(self, bundle, duration):
         runtime = _base_mod._base
+        loaded_preference = self.precise_engine_loading_device_preference
         self.precise_engine_bundle = bundle
+        self.precise_engine_loaded_device_preference = loaded_preference
         self.precise_engine_loading = False
+        self.precise_engine_loading_device_preference = None
+        self._clear_model_loading_context()
+        self._sync_model_loading_ui()
         runtime.LOGGER.info(
             "Precise speaker engine ready in %.2f seconds. model=%s device=%s compute_type=%s cache=%s",
             duration,
@@ -802,13 +831,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             bundle.compute_type,
             bundle.download_root,
         )
+        should_start = self.pending_precise_start
+        self.pending_precise_start = False
+        next_action = "Запускаю распознавание." if should_start else "Можно нажимать Старт."
         self.status_var.set("Точный режим готов")
         self.hint_var.set(
             f"Whisper {bundle.model_name} загружен за {duration:.1f} с "
-            f"({bundle.device}/{bundle.compute_type}). Запускаю распознавание."
+            f"({bundle.device}/{bundle.compute_type}). {next_action}"
         )
-        should_start = self.pending_precise_start
-        self.pending_precise_start = False
         self._set_audio_controls_running_state(False)
         self._update_start_button_state()
         if should_start:
@@ -817,7 +847,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
     def _fail_precise_engine_loading(self, error_text):
         runtime = _base_mod._base
         self.precise_engine_loading = False
+        self.precise_engine_loading_device_preference = None
         self.pending_precise_start = False
+        self._clear_model_loading_context()
+        self._sync_model_loading_ui()
         self.status_var.set("Точный режим не загрузился")
         self.hint_var.set("Whisper не запустился. Стабильный Vosk-режим остался доступен.")
         self._set_audio_controls_running_state(False)
@@ -828,6 +861,27 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             f"{error_text}\n\n"
             "Можно выбрать стабильный режим Vosk и продолжить работу.",
         )
+
+    def _reset_precise_speaker_bundle(self):
+        runtime = _base_mod._base
+        if self.precise_engine_loading or self.workers:
+            return False
+
+        bundle = self.precise_engine_bundle
+        self.precise_engine_bundle = None
+        self.precise_engine_loaded_device_preference = None
+        if bundle is None:
+            return False
+
+        runtime.LOGGER.info(
+            "Released precise speaker engine. model=%s device=%s compute_type=%s",
+            bundle.model_name,
+            bundle.device,
+            bundle.compute_type,
+        )
+        del bundle
+        runtime.gc.collect()
+        return True
 
     def _build_speaker_worker(self, speaker_source):
         runtime = _base_mod._base
@@ -847,13 +901,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
     def start_transcription(self):
         runtime = _base_mod._base
+        vosk_required = self._requires_vosk_model()
 
-        if self.model_loading:
+        if vosk_required and self.model_loading:
             runtime.LOGGER.info("Start clicked while model is still loading")
             runtime.messagebox.showinfo(runtime.APP_TITLE, "Модель еще загружается. Дождитесь, когда кнопка Старт станет активной.")
             return
 
-        if self.model is None:
+        if vosk_required and self.model is None:
             runtime.LOGGER.error("Start requested, but model is not loaded")
             runtime.messagebox.showerror(runtime.APP_TITLE, "Модель распознавания не загружена.")
             return
@@ -883,11 +938,12 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                 return
 
         runtime.LOGGER.info(
-            "Starting transcription. capture_mode=%s mic=%s speaker=%s speaker_mode=%s model=%s",
+            "Starting transcription. capture_mode=%s mic=%s speaker=%s speaker_mode=%s precise_device=%s model=%s",
             self._current_capture_mode_key(),
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
             speaker_mode_key,
+            self._current_precise_device_key(),
             self._current_model_name(),
         )
 
@@ -917,9 +973,13 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         self.status_var.set("Распознавание запущено")
         if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE and self.precise_engine_bundle is not None:
+            vosk_hint = (
+                f"Vosk: {self._current_model_name()}. "
+                if vosk_required
+                else "Vosk не загружался: он не нужен выбранному маршруту. "
+            )
             self.hint_var.set(
-                f"Активная модель Vosk: {self._current_model_name()}. "
-                f"Собеседник идет через {speaker_source['mode_label']} и точный Whisper "
+                f"{vosk_hint}Собеседник идет через {speaker_source['mode_label']} и точный Whisper "
                 f"({self.precise_engine_bundle.device}, {self.precise_engine_bundle.compute_type}, "
                 f"{self.precise_engine_bundle.model_name})."
             )

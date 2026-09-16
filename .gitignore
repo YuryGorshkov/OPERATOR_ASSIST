@@ -12,6 +12,14 @@ backups/*
 !backups/operator_assist_chat_bridge_base.py
 operator_assist_settings.json
 
+# Opt-in ASR experiments: recordings, references, reports and trained weights
+/asr-lab-data/
+/asr-lab-reports/
+/asr-lab-checkpoints/
+/examples/recognition-lab/audio/
+/examples/recognition-lab/references/
+/examples/recognition-lab/corpus*.jsonl
+
 # Packaging/build artifacts
 _packaging_test/
 build/

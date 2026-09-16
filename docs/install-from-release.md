@@ -47,7 +47,7 @@ The packaged app still expects an external Russian Vosk model. Before first succ
 
 The model must be extracted as a folder, not left inside a zip archive.
 
-The optional `Точный (Whisper)` caller mode uses `large-v3`. Its cache is stored under `data/models/whisper-cache/`; the first preparation can take noticeably longer than later starts. When CUDA is available, the app tries a supported GPU compute mode first and falls back to CPU if necessary.
+The optional `Точный (Whisper)` caller mode uses `large-v3`. Its cache is stored under `data/models/whisper-cache/`; the first preparation can take noticeably longer than later starts. The compute selector offers `Видеокарта (GPU/CUDA)` and `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable, while CPU mode deliberately avoids video-memory allocation.
 
 ## First Launch Checklist
 

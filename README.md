@@ -23,6 +23,7 @@ Windows-first desktop assistant for dual-stream transcription: one channel for t
 | Prompt handoff | Copy/export workflow plus optional Chrome injection experiment | Optional |
 | Browser surfaces | Voice notes and single-stream speaker prototypes | Prototype |
 | Distribution | Portable zip, installer build, GitHub Releases, CI | Available |
+| Recognition lab | Offline profile comparison and verified audio/text preparation | Developer Tooling |
 
 ## Repository Overview
 
@@ -80,6 +81,19 @@ flowchart LR
 
 More detail: [docs/architecture.md](docs/architecture.md)
 
+## Recognition Quality Lab
+
+The optional `asr_lab` command-line tools compare recognition settings on the same
+human-verified audio/text corpus without changing the desktop runtime. The baseline
+uses the existing speaker engine; experiments vary one factor at a time. Reports
+include WER/CER, raw versus normalized transcripts, terminology coverage and offline
+processing time. Tools can also convert authorized audio files and export paired
+training data, but do not record devices, train models or download weights automatically.
+
+No quality improvement or fine-tuning result is claimed yet. Private recordings,
+reference books, reports and checkpoints remain local and are excluded from Git.
+See [docs/recognition-lab.md](docs/recognition-lab.md) for the workflow and limitations.
+
 ## Runtime Surfaces
 
 | Surface | Entry point | Purpose |
@@ -123,6 +137,7 @@ OPERATOR_ASSIST/
 4. Place one supported Vosk model into `data/models/`.
 5. Start the app, choose the required channels, and use `Найти звук` while test audio is playing if the system route is unclear.
 6. Choose `Точный (Whisper)` for maximum caller accuracy; its model cache is prepared on first use.
+7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
 
 More detail: [docs/install-from-release.md](docs/install-from-release.md)
 

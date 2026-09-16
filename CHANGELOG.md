@@ -2,6 +2,35 @@
 
 All notable repository-facing changes are documented here.
 
+## Unreleased
+
+- added separate, opt-in offline ASR lab tooling with nine single-factor profiles
+- compare the unchanged desktop baseline against context, term-hint, buffering, VAD, beam-search and preprocessing experiments
+- report corpus-weighted WER/CER, raw results, term coverage, input diagnostics and offline processing time
+- validate human-verified audio/text pairs and reject alternate-voice passage leakage or overlapping audio across data splits
+- support authorized local audio conversion and verified-pair export without starting recording or training
+- preserve per-run errors, source/model hashes and completion status; never overwrite earlier runs
+- exclude experiment recordings, references, reports and checkpoints from Git
+- install runtime dependencies in CI and run the offline lab regressions without downloading speech models
+
+Recognition-quality gains and model fine-tuning are pending evaluation on a verified corpus.
+
+## v1.2.0 - 2026-09-01
+
+Startup and precise-recognition tuning release.
+
+Highlights:
+
+- stopped loading the multi-gigabyte Vosk model for `Только собеседник + Точный (Whisper)` sessions
+- preload the saved recognition engine in the background as soon as the application opens
+- persist capture and speaker-recognition modes across restarts
+- increased Whisper's continuous-speech window from 3.2 to 6 seconds to avoid cutting names and sentences into tiny fragments
+- feed a bounded tail of the previous result back as recognition context
+- log audio duration, inference duration, and real-time factor for every Whisper segment
+- added a saved `GPU/CUDA` or `CPU` Whisper compute selector; CPU mode never allocates CUDA, while GPU mode retains a safe CPU fallback
+- unload the previous Whisper instance before changing compute devices to avoid duplicate RAM or VRAM use
+- added regression coverage for lazy Vosk loading and Whisper context continuity
+
 ## v1.1.1 - 2026-09-01
 
 GPU runtime reliability fix.
