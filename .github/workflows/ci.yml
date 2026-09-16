@@ -16,7 +16,6 @@ jobs:
     timeout-minutes: 20
     env:
       PYTHONPATH: ${{ github.workspace }}
-      PYTHONPYCACHEPREFIX: ${{ runner.temp }}\operator_assist_pyc
       PYTHONUTF8: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
@@ -28,6 +27,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+
+      - name: Configure Python cache in runner temp
+        shell: pwsh
+        run: '"PYTHONPYCACHEPREFIX=$env:RUNNER_TEMP\operator_assist_pyc" >> $env:GITHUB_ENV'
 
       - name: Install test dependencies (no speech models)
         run: python -m pip install -r requirements.txt

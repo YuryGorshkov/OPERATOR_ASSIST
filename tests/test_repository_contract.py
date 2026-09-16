@@ -100,6 +100,13 @@ class RepositoryContractTests(unittest.TestCase):
                      "/examples/recognition-lab/audio/", "/examples/recognition-lab/references/"):
             self.assertIn(path, ignored)
 
+    def test_ci_initializes_runner_cache_only_inside_a_step(self):
+        ci = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        job_env = ci.split("    env:\n", 1)[1].split("    steps:", 1)[0]
+        self.assertNotIn("${{ runner.", job_env)
+        self.assertIn("$env:RUNNER_TEMP", ci)
+        self.assertIn("$env:GITHUB_ENV", ci)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ All notable repository-facing changes are documented here.
 - preserve per-run errors, source/model hashes and completion status; never overwrite earlier runs
 - exclude experiment recordings, references, reports and checkpoints from Git
 - install runtime dependencies in CI and run the offline lab regressions without downloading speech models
+- initialize the Windows CI Python cache inside a runner step instead of using runner context in job-level environment
 
 Recognition-quality gains and model fine-tuning are pending evaluation on a verified corpus.
 
