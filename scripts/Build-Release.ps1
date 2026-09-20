@@ -251,7 +251,7 @@ $modelsReadme = @(
     "- models\vosk-model-small-ru-0.22",
     "",
     "The release bundle intentionally does not ship large speech models.",
-    "Whisper large-v3 cache is created under models\whisper-cache when precise mode is prepared."
+    "Whisper large-v3 and large-v3-turbo caches are created under models\whisper-cache when selected."
 )
 Set-Content -LiteralPath (Join-Path $portableRoot "data\models\README.txt") -Value $modelsReadme -Encoding UTF8
 
@@ -263,7 +263,8 @@ $quickStart = @(
     "3. If the app still reports a missing model, click 'Папка models' and then 'Проверить снова'.",
     "4. Logs are written to .\data\logs and saved transcripts to .\data\transcripts.",
     "5. For caller-only playback tests choose 'Только собеседник'; use 'Найти звук' while audio is playing.",
-    "6. 'Точный (Whisper)' favors accuracy. Select GPU/CUDA for throughput or CPU when the target GPU is weaker.",
+    "6. In 'Точный (Whisper)', select the large-v3 quality model or the smaller large-v3-turbo model.",
+    "7. Select GPU/CUDA for throughput or CPU when the target GPU is weaker.",
     "",
     "Editable helper files:",
     "- .\config\technical_terms.json",

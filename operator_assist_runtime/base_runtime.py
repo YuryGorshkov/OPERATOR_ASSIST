@@ -58,7 +58,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.3.0"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -103,6 +103,12 @@ PRECISE_DEVICE_CPU = "cpu"
 PRECISE_DEVICE_CHOICES = (
     (PRECISE_DEVICE_GPU, "Видеокарта (GPU/CUDA)"),
     (PRECISE_DEVICE_CPU, "Процессор (CPU)"),
+)
+PRECISE_MODEL_ACCURATE = "large-v3"
+PRECISE_MODEL_FAST = "large-v3-turbo"
+PRECISE_MODEL_CHOICES = (
+    (PRECISE_MODEL_ACCURATE, "Качество (large-v3)"),
+    (PRECISE_MODEL_FAST, "Быстрый запуск (large-v3-turbo)"),
 )
 
 
@@ -453,6 +459,20 @@ def precise_device_key_from_label(label):
     return PRECISE_DEVICE_GPU
 
 
+def precise_model_label(model_key):
+    for key, label in PRECISE_MODEL_CHOICES:
+        if key == model_key:
+            return label
+    return PRECISE_MODEL_CHOICES[0][1]
+
+
+def precise_model_key_from_label(label):
+    for key, model_label in PRECISE_MODEL_CHOICES:
+        if model_label == label:
+            return key
+    return PRECISE_MODEL_ACCURATE
+
+
 def format_channel_count(count):
     if not count:
         return ""
@@ -714,6 +734,7 @@ class OperatorAssistApp:
         self.capture_mode_var = tk.StringVar()
         self.speaker_recognition_mode_var = tk.StringVar()
         self.precise_device_var = tk.StringVar()
+        self.precise_model_var = tk.StringVar()
         self.chrome_window_var = tk.StringVar(value=self.settings.get("chrome_window_keyword", "ChatGPT"))
         self.auto_enter_var = tk.BooleanVar(value=bool(self.settings.get("chrome_auto_enter", False)))
         self.status_var = tk.StringVar(value="Подготовка окна")
@@ -1146,7 +1167,7 @@ class OperatorAssistApp:
                 if precise_bundle is not None
                 else ""
             )
-            summary_existing_models = ["Whisper large-v3"]
+            summary_existing_models = [f"Whisper {self._current_precise_model_key()}"]
             summary_model_error = ""
         else:
             summary_model_loading = self.model_loading
@@ -1323,14 +1344,16 @@ class OperatorAssistApp:
             if control is not None:
                 control.configure(state="disabled" if running else "readonly")
 
-        precise_device_control = getattr(self, "precise_device_combo", None)
-        if precise_device_control is not None:
+        for attribute in ("precise_device_combo", "precise_model_combo"):
+            precise_control = getattr(self, attribute, None)
+            if precise_control is None:
+                continue
             precise_device_enabled = (
                 not running
                 and self._capture_speaker_enabled()
                 and self._current_speaker_mode_key() == SPEAKER_MODE_PRECISE
             )
-            precise_device_control.configure(
+            precise_control.configure(
                 state="readonly" if precise_device_enabled else "disabled"
             )
 
@@ -1641,8 +1664,11 @@ class OperatorAssistApp:
     def _current_precise_device_key(self):
         return precise_device_key_from_label(self.precise_device_var.get())
 
+    def _current_precise_model_key(self):
+        return precise_model_key_from_label(self.precise_model_var.get())
+
     def _precise_mode_status(self):
-        return precise_engine_status(MODELS_DIR)
+        return precise_engine_status(MODELS_DIR, self._current_precise_model_key())
 
     def _apply_default_speaker_mode(self):
         saved_mode = self.settings.get("speaker_recognition_mode", SPEAKER_MODE_STABLE)
@@ -1658,6 +1684,13 @@ class OperatorAssistApp:
         if saved_device not in valid_keys:
             saved_device = PRECISE_DEVICE_GPU
         self.precise_device_var.set(precise_device_label(saved_device))
+
+    def _apply_default_precise_model(self):
+        saved_model = self.settings.get("precise_model", PRECISE_MODEL_ACCURATE)
+        valid_keys = {key for key, _label in PRECISE_MODEL_CHOICES}
+        if saved_model not in valid_keys:
+            saved_model = PRECISE_MODEL_ACCURATE
+        self.precise_model_var.set(precise_model_label(saved_model))
 
     def _refresh_speaker_mode_hint(self):
         mode_key = self._current_speaker_mode_key()
@@ -1695,6 +1728,18 @@ class OperatorAssistApp:
         self._save_settings()
         self._prepare_recognition_engines_for_current_mode()
 
+    def _on_precise_model_selected(self, _event=None):
+        if self.workers or self.precise_engine_loading:
+            self.hint_var.set("Остановите сеанс и дождитесь загрузки модели перед сменой модели Whisper.")
+            return
+
+        reset_precise = getattr(self, "_reset_precise_speaker_bundle", None)
+        if reset_precise is not None:
+            reset_precise()
+        self._refresh_speaker_mode_hint()
+        self._save_settings()
+        self._prepare_recognition_engines_for_current_mode()
+
     def _load_settings(self):
         if SETTINGS_PATH.exists():
             try:
@@ -1715,6 +1760,7 @@ class OperatorAssistApp:
             "capture_mode": self._current_capture_mode_key(),
             "speaker_recognition_mode": self._current_speaker_mode_key(),
             "precise_device": self._current_precise_device_key(),
+            "precise_model": self._current_precise_model_key(),
             "chrome_window_keyword": self.chrome_window_var.get().strip(),
             "chrome_auto_enter": bool(self.auto_enter_var.get()),
         }

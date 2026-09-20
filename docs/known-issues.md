@@ -4,7 +4,8 @@ This document lists the current limitations that are important to mention during
 
 ## Audio And Recognition
 
-- Offline Russian recognition quality still depends on source quality and routing; Vosk favors low latency while Whisper `large-v3` favors accuracy and requires more memory.
+- Offline Russian recognition quality still depends on source quality and routing; Vosk favors low latency, while Whisper offers a larger `large-v3` quality profile and a smaller `large-v3-turbo` profile.
+- Loading multi-gigabyte Whisper weights from an HDD remains slower than loading from an SSD; the turbo profile reduces but cannot eliminate this storage limit.
 - Domain vocabulary is improved mainly through deterministic post-processing, not through model fine-tuning.
 - Acoustic cross-talk can still happen when loud headphones physically spill into a nearby microphone; delayed duplicate filtering reduces repeated text but cannot reconstruct perfectly separated audio.
 - Real-world audio regression tests with saved fixtures are not yet part of the automated suite.

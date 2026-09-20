@@ -4,6 +4,21 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
+No unreleased changes.
+
+## v1.3.0 - 2026-09-20
+
+Selectable Whisper performance profiles and measured startup improvements.
+
+Highlights:
+
+- add `large-v3-turbo` as an optional fast precise-recognition model while preserving `large-v3`
+- let users choose the Whisper model independently from the GPU/CPU compute selector
+- open complete local model snapshots directly instead of resolving the hub cache on every launch
+- log CUDA preparation, model-open and total loading durations separately
+- retain compatibility with settings saved before the model selector existed
+- validate the production pause-aware engine on nine verified Russian samples: the local development corpus measured WER 6.15% and RTF 0.285 for turbo versus WER 9.23% and RTF 0.501 for large-v3; this small single-book set is directional, not a universal quality claim
+
 - added separate, opt-in offline ASR lab tooling with nine single-factor profiles
 - compare the unchanged desktop baseline against context, term-hint, buffering, VAD, beam-search and preprocessing experiments
 - report corpus-weighted WER/CER, raw results, term coverage, input diagnostics and offline processing time

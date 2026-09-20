@@ -19,7 +19,7 @@ Windows-first desktop assistant for dual-stream transcription: one channel for t
 | --- | --- | --- |
 | Desktop runtime | Tkinter app with separate operator and speaker panes | Primary |
 | Audio capture | Microphone plus WASAPI loopback or fallback recording input | Primary |
-| Speech recognition | Fast local Vosk plus optional `faster-whisper large-v3` | Primary |
+| Speech recognition | Fast local Vosk plus selectable Whisper quality and turbo models | Primary |
 | Prompt handoff | Copy/export workflow plus optional Chrome injection experiment | Optional |
 | Browser surfaces | Voice notes and single-stream speaker prototypes | Prototype |
 | Distribution | Portable zip, installer build, GitHub Releases, CI | Available |
@@ -44,7 +44,7 @@ The repository focuses on the engineering needed to make that workflow usable on
 ## Core Capabilities
 
 - Simultaneous transcription of microphone audio and speaker or system audio into separate panels.
-- Offline Russian speech recognition using fast Vosk or high-accuracy `faster-whisper large-v3` for the caller channel.
+- Offline Russian speech recognition using fast Vosk or selectable `faster-whisper large-v3` / `large-v3-turbo` models for the caller channel.
 - Selectable capture modes for both channels, caller only, or operator only.
 - Live source probe that identifies the input currently carrying system audio.
 - Automatic WASAPI loopback discovery with fallback to classic recording inputs such as Stereo Mix.
@@ -141,7 +141,7 @@ OPERATOR_ASSIST/
 3. Install or extract the package.
 4. Place one supported Vosk model into `data/models/`.
 5. Start the app, choose the required channels, and use `Найти звук` while test audio is playing if the system route is unclear.
-6. Choose `Точный (Whisper)` for maximum caller accuracy; its model cache is prepared on first use.
+6. Choose `Точный (Whisper)`, then select `Качество (large-v3)` or the smaller `Быстрый запуск (large-v3-turbo)` model. Each model is prepared only on its first use.
 7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
 
 More detail: [docs/install-from-release.md](docs/install-from-release.md)

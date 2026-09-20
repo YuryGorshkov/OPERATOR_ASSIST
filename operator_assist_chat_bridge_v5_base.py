@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.2.2"
+WRAPPER_VERSION = "1.3.0"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -384,6 +384,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         runtime.tk.Label(controls, text="Собеседник / системный звук", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=0, column=1, sticky="w", padx=(16, 0))
         runtime.tk.Label(controls, text="Активные каналы", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=(12, 0))
         runtime.tk.Label(controls, text="Режим собеседника", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
+        runtime.tk.Label(controls, text="Модель точного режима", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=4, column=0, sticky="w", pady=(12, 0))
         runtime.tk.Label(controls, text="Вычислитель точного режима", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=4, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
 
         self.mic_combo = runtime.ttk.Combobox(controls, textvariable=self.mic_device_var, state="readonly", width=48)
@@ -414,6 +415,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         )
         self.precise_device_combo.grid(row=5, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
         self.precise_device_combo.bind("<<ComboboxSelected>>", self._on_precise_device_selected)
+        self.precise_model_combo = runtime.ttk.Combobox(
+            controls,
+            textvariable=self.precise_model_var,
+            state="disabled",
+            width=48,
+        )
+        self.precise_model_combo.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+        self.precise_model_combo.bind("<<ComboboxSelected>>", self._on_precise_model_selected)
         self._bind_device_selection_diagnostics()
 
         buttons = runtime.tk.Frame(controls, bg="white")
@@ -591,6 +600,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.speaker_mode_combo["values"] = self._speaker_mode_labels()
         if hasattr(self, "precise_device_combo"):
             self.precise_device_combo["values"] = self._precise_device_labels()
+        if hasattr(self, "precise_model_combo"):
+            self.precise_model_combo["values"] = [
+                label for _key, label in runtime.PRECISE_MODEL_CHOICES
+            ]
 
         if not mic_labels:
             runtime.LOGGER.warning("No microphone devices available")
@@ -616,17 +629,19 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.mic_device_var.set(mic_default or mic_labels[0])
         self.speaker_device_var.set(speaker_default or speaker_labels[0])
         self._apply_default_capture_mode()
-        self._apply_default_speaker_mode()
         self._apply_default_precise_device()
+        self._apply_default_precise_model()
+        self._apply_default_speaker_mode()
         self._set_audio_controls_running_state(False)
 
         runtime.LOGGER.info(
-            "Default devices selected. mic=%s speaker=%s capture_mode=%s speaker_mode=%s precise_device=%s",
+            "Default devices selected. mic=%s speaker=%s capture_mode=%s speaker_mode=%s precise_device=%s precise_model=%s",
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
             self._current_capture_mode_key(),
             self._current_speaker_mode_key(),
             self._current_precise_device_key(),
+            self._current_precise_model_key(),
         )
         self._refresh_audio_diagnostics()
 
@@ -753,8 +768,12 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
     def _ensure_precise_speaker_bundle(self, *, start_after_load=True):
         runtime = _base_mod._base
         requested_device = self._current_precise_device_key()
+        requested_model = self._current_precise_model_key()
         if self.precise_engine_bundle is not None:
-            if self.precise_engine_loaded_device_preference == requested_device:
+            if (
+                self.precise_engine_loaded_device_preference == requested_device
+                and self.precise_engine_bundle.model_name == requested_model
+            ):
                 return self.precise_engine_bundle
             self._reset_precise_speaker_bundle()
 
@@ -766,7 +785,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.precise_engine_loading_device_preference = requested_device
         self.pending_precise_start = bool(start_after_load)
         self.precise_engine_load_started_at = runtime.time.monotonic()
-        self._set_model_loading_context("Подготавливаю Whisper", "large-v3", 1, 1)
+        self._set_model_loading_context("Подготавливаю Whisper", requested_model, 1, 1)
         self._sync_model_loading_ui()
         self._schedule_model_loading_tick()
         self.status_var.set("Загружаю точный режим")
@@ -778,14 +797,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         loader = runtime.threading.Thread(
             target=self._load_precise_engine_worker,
-            args=(requested_device,),
+            args=(requested_device, requested_model),
             daemon=True,
             name="PreciseEngineLoader",
         )
         loader.start()
         return None
 
-    def _load_precise_engine_worker(self, device_preference):
+    def _load_precise_engine_worker(self, device_preference, model_name):
         runtime = _base_mod._base
 
         def report_progress(model_name, device, compute_type, attempt_index, attempt_total):
@@ -805,6 +824,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             bundle = load_precise_engine_bundle(
                 runtime.MODELS_DIR,
                 logger=runtime.LOGGER,
+                model_name=model_name,
                 device_preference=device_preference,
                 progress_callback=report_progress,
             )

@@ -7,6 +7,16 @@ from operator_assist_runtime import base_runtime
 
 
 class ModelLoadingPolicyTests(unittest.TestCase):
+    def test_precise_model_labels_round_trip_and_keep_quality_default(self):
+        for key, label in base_runtime.PRECISE_MODEL_CHOICES:
+            self.assertEqual(key, base_runtime.precise_model_key_from_label(label))
+            self.assertEqual(label, base_runtime.precise_model_label(key))
+
+        self.assertEqual(
+            base_runtime.PRECISE_MODEL_ACCURATE,
+            base_runtime.precise_model_key_from_label("unknown"),
+        )
+
     def _app_for_route(self, *, mic_enabled, speaker_enabled, speaker_mode):
         app = base_runtime.OperatorAssistApp.__new__(base_runtime.OperatorAssistApp)
         app._capture_mic_enabled = lambda: mic_enabled

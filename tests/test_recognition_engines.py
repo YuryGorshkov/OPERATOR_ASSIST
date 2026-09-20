@@ -1,5 +1,6 @@
 import unittest
 import logging
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
@@ -9,6 +10,37 @@ from operator_assist_runtime import recognition_engines
 
 
 class RecognitionEnginePlanTests(unittest.TestCase):
+    def test_cached_precise_model_path_resolves_complete_main_snapshot(self):
+        with TemporaryDirectory() as root:
+            cache_root = Path(root)
+            repository = cache_root / "models--Systran--faster-whisper-large-v3"
+            snapshot = repository / "snapshots" / "abc123"
+            snapshot.mkdir(parents=True)
+            (repository / "refs").mkdir()
+            (repository / "refs" / "main").write_text("abc123\n", encoding="utf-8")
+            for file_name in ("model.bin", "config.json", "tokenizer.json"):
+                (snapshot / file_name).write_text("fixture", encoding="utf-8")
+
+            resolved = recognition_engines.cached_precise_model_path(cache_root, "large-v3")
+
+            self.assertEqual(snapshot, resolved)
+
+    def test_cached_precise_model_path_rejects_incomplete_snapshot(self):
+        with TemporaryDirectory() as root:
+            cache_root = Path(root)
+            snapshot = (
+                cache_root
+                / "models--Systran--faster-whisper-large-v3"
+                / "snapshots"
+                / "abc123"
+            )
+            snapshot.mkdir(parents=True)
+            (snapshot / "config.json").write_text("{}", encoding="utf-8")
+
+            self.assertIsNone(
+                recognition_engines.cached_precise_model_path(cache_root, "large-v3")
+            )
+
     @unittest.skipUnless(recognition_engines.os.name == "nt", "Windows DLL loading test")
     def test_prepare_cuda_runtime_uses_system_dll_search_as_fallback(self):
         original_candidates = recognition_engines._candidate_cublas_bin_dirs
@@ -128,10 +160,50 @@ class RecognitionEnginePlanTests(unittest.TestCase):
 
             self.assertEqual("cpu", bundle.device)
             self.assertEqual("int8", bundle.compute_type)
+            self.assertEqual(recognition_engines.DEFAULT_PRECISE_MODEL_NAME, bundle.model.model_name)
+            self.assertFalse(bundle.model.kwargs["local_files_only"])
             self.assertEqual(
                 [(recognition_engines.DEFAULT_PRECISE_MODEL_NAME, "cpu", "int8", 1, 1)],
                 progress,
             )
+        finally:
+            recognition_engines.precise_engine_available = original_available
+            recognition_engines.precise_engine_attempt_plan = original_plan
+            recognition_engines.WhisperModel = original_model
+
+    def test_precise_engine_loader_opens_cached_snapshot_directly(self):
+        original_available = recognition_engines.precise_engine_available
+        original_plan = recognition_engines.precise_engine_attempt_plan
+        original_model = recognition_engines.WhisperModel
+
+        class FakeWhisperModel:
+            def __init__(self, model_source, **kwargs):
+                self.model_source = model_source
+                self.kwargs = kwargs
+
+        try:
+            recognition_engines.precise_engine_available = lambda: True
+            recognition_engines.precise_engine_attempt_plan = lambda _preference=None: [("cpu", "int8")]
+            recognition_engines.WhisperModel = FakeWhisperModel
+            with TemporaryDirectory() as models_dir:
+                snapshot = (
+                    Path(models_dir)
+                    / "whisper-cache"
+                    / "models--Systran--faster-whisper-large-v3"
+                    / "snapshots"
+                    / "abc123"
+                )
+                snapshot.mkdir(parents=True)
+                for file_name in ("model.bin", "config.json", "tokenizer.json"):
+                    (snapshot / file_name).write_text("fixture", encoding="utf-8")
+
+                bundle = recognition_engines.load_precise_engine_bundle(
+                    models_dir,
+                    logger=logging.getLogger("test.precise-cached-loader"),
+                )
+
+            self.assertEqual(str(snapshot), bundle.model.model_source)
+            self.assertTrue(bundle.model.kwargs["local_files_only"])
         finally:
             recognition_engines.precise_engine_available = original_available
             recognition_engines.precise_engine_attempt_plan = original_plan

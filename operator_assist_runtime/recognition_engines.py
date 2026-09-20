@@ -34,6 +34,10 @@ from vosk import KaldiRecognizer
 
 
 DEFAULT_PRECISE_MODEL_NAME = "large-v3"
+PRECISE_MODEL_REPOSITORIES = {
+    "large-v3": "Systran/faster-whisper-large-v3",
+    "large-v3-turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+}
 DEFAULT_NO_SPEECH_REJECT_THRESHOLD = 0.8
 MIN_FINAL_ALNUM_CHARS = 2
 PRECISE_DEVICE_GPU = "gpu"
@@ -130,17 +134,63 @@ def precise_engine_available():
     return FASTER_WHISPER_AVAILABLE and np is not None
 
 
-def precise_engine_status(models_dir):
+def precise_engine_status(models_dir, model_name=DEFAULT_PRECISE_MODEL_NAME):
     if not FASTER_WHISPER_AVAILABLE:
         return False, f"faster-whisper не установлен: {FASTER_WHISPER_IMPORT_ERROR}"
     if np is None:
         return False, "numpy недоступен для точного режима."
 
     download_root = Path(models_dir) / "whisper-cache"
-    if download_root.exists():
-        return True, f"Точный режим готов. Кэш Whisper: {download_root}"
+    if cached_precise_model_path(download_root, model_name) is not None:
+        return True, f"Модель Whisper {model_name} найдена в локальном кэше."
 
-    return True, "Точный режим доступен. При первом запуске модель Whisper может загружаться дольше."
+    return True, (
+        f"Модель Whisper {model_name} будет подготовлена при первом запуске; "
+        "это может занять заметное время."
+    )
+
+
+def cached_precise_model_path(download_root, model_name):
+    """Return a complete local snapshot without invoking the hub cache resolver."""
+    repository = PRECISE_MODEL_REPOSITORIES.get(model_name)
+    if repository is None:
+        return None
+
+    repository_dir = Path(download_root) / f"models--{repository.replace('/', '--')}"
+    snapshot_root = repository_dir / "snapshots"
+    if not snapshot_root.is_dir():
+        return None
+
+    candidates = []
+    main_ref = repository_dir / "refs" / "main"
+    try:
+        revision = main_ref.read_text(encoding="utf-8").strip()
+    except OSError:
+        revision = ""
+    if revision:
+        candidates.append(snapshot_root / revision)
+
+    try:
+        candidates.extend(
+            sorted(
+                (path for path in snapshot_root.iterdir() if path.is_dir()),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+        )
+    except OSError:
+        return None
+
+    required_files = ("model.bin", "config.json", "tokenizer.json")
+    seen = set()
+    for candidate in candidates:
+        candidate_key = str(candidate).lower()
+        if candidate_key in seen:
+            continue
+        seen.add(candidate_key)
+        if all((candidate / file_name).is_file() for file_name in required_files):
+            return candidate
+    return None
 
 
 def preferred_precise_device():
@@ -242,11 +292,20 @@ def load_precise_engine_bundle(
 
     download_root = Path(models_dir) / "whisper-cache"
     download_root.mkdir(parents=True, exist_ok=True)
+    cached_model_path = cached_precise_model_path(download_root, model_name)
+    model_source = str(cached_model_path) if cached_model_path is not None else model_name
 
     errors = []
+    load_started_at = time.perf_counter()
     attempt_plan = precise_engine_attempt_plan(device_preference)
     if any(device == "cuda" for device, _compute_type in attempt_plan):
+        cuda_started_at = time.perf_counter()
         cuda_ready, cuda_details = prepare_cuda_runtime(logger=logger)
+        logger.info(
+            "Precise engine CUDA preparation finished in %.2f seconds. ready=%s",
+            time.perf_counter() - cuda_started_at,
+            cuda_ready,
+        )
         if not cuda_ready:
             errors.append(f"cuda/runtime: {cuda_details}")
             attempt_plan = [
@@ -262,18 +321,27 @@ def load_precise_engine_bundle(
                 len(attempt_plan),
             )
         logger.info(
-            "Loading precise speaker engine. model=%s device=%s compute_type=%s download_root=%s",
+            "Loading precise speaker engine. model=%s source=%s device=%s compute_type=%s download_root=%s",
             model_name,
+            model_source,
             device,
             compute_type,
             download_root,
         )
         try:
+            attempt_started_at = time.perf_counter()
             model = WhisperModel(
-                model_name,
+                model_source,
                 device=device,
                 compute_type=compute_type,
                 download_root=str(download_root),
+                local_files_only=cached_model_path is not None,
+            )
+            logger.info(
+                "Precise engine model opened in %.2f seconds (total %.2f). local_snapshot=%s",
+                time.perf_counter() - attempt_started_at,
+                time.perf_counter() - load_started_at,
+                cached_model_path is not None,
             )
             return PreciseEngineBundle(
                 model=model,
