@@ -4,6 +4,7 @@ import ctypes
 from dataclasses import dataclass
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import sys
@@ -33,6 +34,7 @@ from vosk import KaldiRecognizer
 
 
 DEFAULT_PRECISE_MODEL_NAME = "large-v3"
+DEFAULT_NO_SPEECH_REJECT_THRESHOLD = 0.8
 PRECISE_DEVICE_GPU = "gpu"
 PRECISE_DEVICE_CPU = "cpu"
 _CUDA_DLL_DIRECTORY_HANDLES = []
@@ -188,6 +190,38 @@ def precise_engine_attempt_plan(device_preference=None):
     return cuda_attempts + cpu_attempts
 
 
+def filter_no_speech_segments(segments, threshold):
+    """Partition decoder segments without relying on recognized phrases."""
+    segments = list(segments)
+    if threshold is None:
+        return segments, []
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(threshold)
+        or not 0.0 < threshold <= 1.0
+    ):
+        raise ValueError("Порог отсутствия речи должен быть числом больше 0 и не больше 1.")
+
+    accepted = []
+    rejected = []
+    for segment in segments:
+        probability = getattr(segment, "no_speech_prob", None)
+        try:
+            probability = float(probability)
+        except (TypeError, ValueError):
+            accepted.append(segment)
+            continue
+        if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+            accepted.append(segment)
+            continue
+        if probability >= threshold:
+            rejected.append((segment, probability))
+        else:
+            accepted.append(segment)
+    return accepted, rejected
+
+
 def load_precise_engine_bundle(
     models_dir,
     *,
@@ -301,6 +335,7 @@ class FasterWhisperBufferedEngine:
         flush_after_seconds=6.0,
         min_segment_seconds=0.7,
         context_chars=320,
+        no_speech_reject_threshold=DEFAULT_NO_SPEECH_REJECT_THRESHOLD,
     ):
         self._bundle = bundle
         self._text_postprocessor = text_postprocessor
@@ -309,8 +344,15 @@ class FasterWhisperBufferedEngine:
         self._flush_after_bytes = int(sample_rate * 2 * flush_after_seconds)
         self._min_segment_bytes = int(sample_rate * 2 * min_segment_seconds)
         self._context_chars = max(0, int(context_chars))
+        filter_no_speech_segments((), no_speech_reject_threshold)
+        self._no_speech_reject_threshold = no_speech_reject_threshold
+        self._rejected_no_speech_segments = 0
         self._previous_text = ""
         self._logger = logging.getLogger("operator_assist")
+
+    @property
+    def rejected_no_speech_segments(self):
+        return self._rejected_no_speech_segments
 
     def consume_chunk(self, chunk):
         if chunk:
@@ -356,6 +398,18 @@ class FasterWhisperBufferedEngine:
             vad_parameters={"min_silence_duration_ms": 350},
             word_timestamps=False,
         )
+        segments, rejected_segments = filter_no_speech_segments(
+            segments,
+            self._no_speech_reject_threshold,
+        )
+        if rejected_segments:
+            self._rejected_no_speech_segments += len(rejected_segments)
+            self._logger.info(
+                "Whisper no-speech guard rejected segments. count=%s probabilities=%s total=%s",
+                len(rejected_segments),
+                ",".join(f"{probability:.3f}" for _segment, probability in rejected_segments),
+                self._rejected_no_speech_segments,
+            )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = self._text_postprocessor(text.strip(), log_changes=True)
         elapsed = time.perf_counter() - started_at

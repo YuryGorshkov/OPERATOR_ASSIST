@@ -16,6 +16,18 @@ All notable repository-facing changes are documented here.
 
 Recognition-quality gains and model fine-tuning are pending evaluation on a verified corpus.
 
+## v1.2.1 - 2026-09-20
+
+Precise-recognition reliability fix.
+
+Highlights:
+
+- reject Whisper segments that the decoder classifies as non-speech instead of filtering known phrases
+- preserve speech when confidence metadata is absent or invalid, preventing compatibility-related data loss
+- keep rejected text out of the context supplied to subsequent recognition windows
+- record aggregate rejection diagnostics without writing recognized content to the application log
+- validate the change against a real captured session and multi-voice, variable-tempo regression corpora
+
 ## v1.2.0 - 2026-09-01
 
 Startup and precise-recognition tuning release.

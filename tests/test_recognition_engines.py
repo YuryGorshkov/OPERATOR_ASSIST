@@ -165,6 +165,100 @@ class RecognitionEnginePlanTests(unittest.TestCase):
         self.assertEqual("Первая длинная фраза.", transcribe_calls[1]["initial_prompt"])
         self.assertTrue(transcribe_calls[0]["condition_on_previous_text"])
 
+    def _make_precise_engine(self, returned_segments, **kwargs):
+        class FakeModel:
+            def transcribe(self, _audio, **_transcribe_kwargs):
+                return iter(returned_segments), SimpleNamespace()
+
+        return recognition_engines.FasterWhisperBufferedEngine(
+            SimpleNamespace(model=FakeModel()),
+            text_postprocessor=lambda text, **_postprocess_kwargs: text,
+            sample_rate=10,
+            flush_after_seconds=1.0,
+            min_segment_seconds=0.1,
+            **kwargs,
+        )
+
+    def test_precise_buffer_rejects_high_no_speech_segment(self):
+        engine = self._make_precise_engine(
+            (SimpleNamespace(text="Субтитры сделал кто-то", no_speech_prob=0.84),)
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual([], updates)
+        self.assertEqual(1, engine.rejected_no_speech_segments)
+
+    def test_precise_buffer_preserves_same_words_at_low_no_speech_probability(self):
+        engine = self._make_precise_engine(
+            (SimpleNamespace(text="Субтитры сделал кто-то", no_speech_prob=0.12),)
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual("Субтитры сделал кто-то", updates[0].text)
+        self.assertEqual(0, engine.rejected_no_speech_segments)
+
+    def test_precise_buffer_keeps_real_segment_from_mixed_decode(self):
+        engine = self._make_precise_engine(
+            (
+                SimpleNamespace(text="Ложный текст", no_speech_prob=0.91),
+                SimpleNamespace(text="Настоящая речь", no_speech_prob=0.08),
+            )
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual("Настоящая речь", updates[0].text)
+        self.assertEqual(1, engine.rejected_no_speech_segments)
+
+    def test_precise_buffer_rejects_segment_at_exact_threshold(self):
+        engine = self._make_precise_engine(
+            (SimpleNamespace(text="Граница", no_speech_prob=0.8),)
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual([], updates)
+
+    def test_precise_buffer_preserves_segment_without_probability_metadata(self):
+        engine = self._make_precise_engine((SimpleNamespace(text="Совместимый сегмент"),))
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual("Совместимый сегмент", updates[0].text)
+
+    def test_rejected_segment_is_not_used_as_next_prompt(self):
+        transcribe_calls = []
+        returned_segments = iter(
+            (
+                (SimpleNamespace(text="Ложный контекст", no_speech_prob=0.95),),
+                (SimpleNamespace(text="Настоящая речь", no_speech_prob=0.1),),
+            )
+        )
+
+        class FakeModel:
+            def transcribe(self, _audio, **kwargs):
+                transcribe_calls.append(kwargs)
+                return iter(next(returned_segments)), SimpleNamespace()
+
+        engine = recognition_engines.FasterWhisperBufferedEngine(
+            SimpleNamespace(model=FakeModel()),
+            text_postprocessor=lambda text, **_kwargs: text,
+            sample_rate=10,
+            flush_after_seconds=1.0,
+            min_segment_seconds=0.1,
+        )
+        chunk = np.ones(10, dtype=np.int16).tobytes()
+
+        self.assertEqual([], engine.consume_chunk(chunk))
+        self.assertEqual("Настоящая речь", engine.consume_chunk(chunk)[0].text)
+        self.assertIsNone(transcribe_calls[1]["initial_prompt"])
+
+    def test_precise_buffer_rejects_invalid_no_speech_threshold(self):
+        with self.assertRaises(ValueError):
+            self._make_precise_engine((), no_speech_reject_threshold=0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
