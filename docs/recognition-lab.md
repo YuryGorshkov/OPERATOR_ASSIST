@@ -89,9 +89,11 @@ timed separately from profile comparisons.
 
 ## Comparison Profiles
 
-`baseline` uses the unchanged desktop engine: 250 ms replay blocks, a 6-second
-buffer, 0.7-second minimum gap segment, speaker preprocessing and prior text.
-Other profiles change one factor:
+`baseline` preserves the historical fixed-window control: 250 ms replay blocks,
+a 6-second buffer, 0.7-second minimum gap segment, speaker preprocessing and prior
+text. `production_pause` uses the current desktop engine: original PCM, pause-aware
+segmentation, timestamp-owned overlap and decoder-based non-speech rejection.
+Other profiles change one factor from the fixed-window control:
 
 - `context_off`: disable internal and externally supplied previous-text context.
 - `raw_context`: reuse pre-correction text rather than dictionary-normalized output.

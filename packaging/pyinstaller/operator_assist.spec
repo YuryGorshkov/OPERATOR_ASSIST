@@ -32,6 +32,7 @@ hiddenimports = [
     "operator_assist_runtime.base_runtime",
     "operator_assist_runtime.audio_diagnostics",
     "operator_assist_runtime.audio_processing",
+    "operator_assist_runtime.pause_recognition",
     "operator_assist_runtime.recognition_engines",
     "operator_assist_runtime.runtime_paths",
     "operator_assist_runtime.session_routing",

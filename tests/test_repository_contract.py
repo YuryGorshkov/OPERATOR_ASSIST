@@ -93,6 +93,13 @@ class RepositoryContractTests(unittest.TestCase):
         missing = [str(path) for path in expected_files if not path.exists()]
         self.assertEqual([], missing, f"Missing packaging assets: {missing}")
 
+    def test_pause_recognition_runtime_is_explicitly_bundled(self):
+        spec = (PROJECT_ROOT / "packaging" / "pyinstaller" / "operator_assist.spec").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('"operator_assist_runtime.pause_recognition"', spec)
+
     def test_branding_assets_exist(self):
         expected_files = [
             PROJECT_ROOT / "assets" / "logo-enot.png",

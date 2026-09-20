@@ -1,4 +1,4 @@
-"""Lab-only adapters; the baseline uses the unchanged desktop engine."""
+"""Lab-only adapters for reproducible fixed-window and production profiles."""
 
 from dataclasses import replace
 import time
@@ -8,6 +8,7 @@ import numpy as np
 from operator_assist_runtime.recognition_engines import (
     FasterWhisperBufferedEngine, RecognitionUpdate,
 )
+from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
 
 
 class ObservedModel:
@@ -71,7 +72,12 @@ class ExperimentalWhisperEngine(FasterWhisperBufferedEngine):
 def make_engine(bundle, profile, *, text_postprocessor, hotwords=""):
     observed = ObservedModel(bundle.model)
     observed_bundle = replace(bundle, model=observed)
-    if profile.name == "baseline":
+    if profile.name == "production_pause":
+        engine = PauseAwareWhisperEngine(
+            observed_bundle,
+            text_postprocessor=text_postprocessor,
+        )
+    elif profile.name == "baseline":
         engine = FasterWhisperBufferedEngine(observed_bundle, text_postprocessor=text_postprocessor)
     else:
         engine = ExperimentalWhisperEngine(observed_bundle, profile=profile,

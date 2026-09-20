@@ -35,6 +35,7 @@ from vosk import KaldiRecognizer
 
 DEFAULT_PRECISE_MODEL_NAME = "large-v3"
 DEFAULT_NO_SPEECH_REJECT_THRESHOLD = 0.8
+MIN_FINAL_ALNUM_CHARS = 2
 PRECISE_DEVICE_GPU = "gpu"
 PRECISE_DEVICE_CPU = "cpu"
 _CUDA_DLL_DIRECTORY_HANDLES = []
@@ -220,6 +221,11 @@ def filter_no_speech_segments(segments, threshold):
         else:
             accepted.append(segment)
     return accepted, rejected
+
+
+def is_meaningful_final_text(text, *, min_alnum_chars=MIN_FINAL_ALNUM_CHARS):
+    """Reject isolated decoder debris while preserving short replies such as 'да'."""
+    return sum(character.isalnum() for character in (text or "")) >= min_alnum_chars
 
 
 def load_precise_engine_bundle(
@@ -412,6 +418,9 @@ class FasterWhisperBufferedEngine:
             )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = self._text_postprocessor(text.strip(), log_changes=True)
+        if text and not is_meaningful_final_text(text):
+            self._logger.info("Whisper short final fragment suppressed. chars=%s", len(text))
+            text = ""
         elapsed = time.perf_counter() - started_at
         real_time_factor = elapsed / audio_seconds if audio_seconds else 0.0
         self._logger.info(

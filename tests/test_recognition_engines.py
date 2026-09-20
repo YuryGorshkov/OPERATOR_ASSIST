@@ -165,6 +165,20 @@ class RecognitionEnginePlanTests(unittest.TestCase):
         self.assertEqual("Первая длинная фраза.", transcribe_calls[1]["initial_prompt"])
         self.assertTrue(transcribe_calls[0]["condition_on_previous_text"])
 
+    def test_precise_buffer_suppresses_single_character_tail(self):
+        engine = self._make_precise_engine((SimpleNamespace(text="у"),))
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual([], updates)
+
+    def test_precise_buffer_preserves_short_meaningful_reply(self):
+        engine = self._make_precise_engine((SimpleNamespace(text="да"),))
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual("да", updates[0].text)
+
     def _make_precise_engine(self, returned_segments, **kwargs):
         class FakeModel:
             def transcribe(self, _audio, **_transcribe_kwargs):

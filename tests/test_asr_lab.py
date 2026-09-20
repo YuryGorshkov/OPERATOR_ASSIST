@@ -14,6 +14,7 @@ from asr_lab.engine import ObservedModel, make_engine
 from asr_lab.metrics import aggregate, edit_counts, score_terms, score_text, tokens
 from asr_lab.preparation import convert_audio, export_training_pairs
 from asr_lab.profiles import PROFILES
+from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
 from operator_assist_runtime.recognition_engines import FasterWhisperBufferedEngine, PreciseEngineBundle
 
 
@@ -217,7 +218,7 @@ class CorpusTests(unittest.TestCase):
 
 
 class EngineTests(unittest.TestCase):
-    def test_baseline_uses_actual_unchanged_desktop_engine(self):
+    def test_baseline_preserves_the_fixed_window_control(self):
         model = FakeModel("recognized")
         engine, observed = make_engine(bundle(model), PROFILES["baseline"], text_postprocessor=lambda text, **_: text)
         self.assertIs(type(engine), FasterWhisperBufferedEngine)
@@ -227,6 +228,16 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(5, options["beam_size"])
         self.assertNotIn("hotwords", options)
         self.assertIsNone(options["initial_prompt"])
+
+    def test_production_profile_uses_pause_aware_desktop_engine(self):
+        engine, _observed = make_engine(
+            bundle(FakeModel("recognized")),
+            PROFILES["production_pause"],
+            text_postprocessor=lambda text, **_: text,
+        )
+
+        self.assertIs(type(engine), PauseAwareWhisperEngine)
+        self.assertFalse(PROFILES["production_pause"].preprocessing)
 
     def test_raw_context_does_not_feed_dictionary_corrections_back(self):
         model = FakeModel("Marvel", "next")

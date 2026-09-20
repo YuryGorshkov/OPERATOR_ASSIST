@@ -59,6 +59,7 @@ The repository focuses on the engineering needed to make that workflow usable on
 
 - Windows audio routing varies heavily across machines, so the app exposes capture diagnostics instead of assuming one fixed hardware path.
 - Local speech recognition keeps the main workflow usable without API quotas; Vosk favors startup speed while Whisper favors accuracy.
+- Precise Whisper streaming follows detected pauses and assigns overlapping boundary words by timestamp, avoiding blind fixed-window cuts and text-based deduplication.
 - Technical vocabulary correction is handled as deterministic post-processing rather than pretending raw STT is always enough.
 - Experimental AI handoff stays separate from the core desktop runtime so the stable path remains understandable and testable.
 
@@ -84,14 +85,18 @@ More detail: [docs/architecture.md](docs/architecture.md)
 ## Recognition Quality Lab
 
 The optional `asr_lab` command-line tools compare recognition settings on the same
-human-verified audio/text corpus without changing the desktop runtime. The baseline
-uses the existing speaker engine; experiments vary one factor at a time. Reports
+human-verified audio/text corpus without changing the desktop runtime. The fixed-window
+`baseline` remains stable for reproducibility, while `production_pause` follows the
+current desktop engine; other experiments vary one factor at a time. Reports
 include WER/CER, raw versus normalized transcripts, terminology coverage and offline
 processing time. Tools can also convert authorized audio files and export paired
 training data, but do not record devices, train models or download weights automatically.
 
-No quality improvement or fine-tuning result is claimed yet. Private recordings,
-reference books, reports and checkpoints remain local and are excluded from Git.
+The promoted precise-streaming profile was selected on a small, human-verified
+multi-voice development corpus and replayed against a captured control session.
+That evidence supports this runtime choice but is not a general accuracy guarantee.
+No fine-tuning has been performed. Private recordings, reference books, reports
+and checkpoints remain local and are excluded from Git.
 See [docs/recognition-lab.md](docs/recognition-lab.md) for the workflow and limitations.
 
 ## Runtime Surfaces

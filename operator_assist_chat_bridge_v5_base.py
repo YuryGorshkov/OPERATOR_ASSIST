@@ -6,9 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 from operator_assist_runtime.recognition_engines import (
-    FasterWhisperBufferedEngine,
     load_precise_engine_bundle,
 )
+from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
 from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
@@ -286,9 +286,10 @@ class PreciseSpeakerInputWorker(_base_mod._base.TranscriptionWorker):
     def __init__(self, label, model, device_id, ui_queue, precise_bundle):
         super().__init__(label, model, device_id, ui_queue)
         self.precise_bundle = precise_bundle
+        self.audio_preprocessor = None
 
     def _create_recognition_engine(self):
-        return FasterWhisperBufferedEngine(
+        return PauseAwareWhisperEngine(
             self.precise_bundle,
             text_postprocessor=_base_mod._base.apply_technical_term_replacements,
         )
@@ -298,9 +299,10 @@ class PreciseLoopbackTranscriptionWorker(LoopbackTranscriptionWorker):
     def __init__(self, label, model, source, ui_queue, precise_bundle):
         super().__init__(label, model, source, ui_queue)
         self.precise_bundle = precise_bundle
+        self.audio_preprocessor = None
 
     def _create_recognition_engine(self):
-        return FasterWhisperBufferedEngine(
+        return PauseAwareWhisperEngine(
             self.precise_bundle,
             text_postprocessor=_base_mod._base.apply_technical_term_replacements,
         )

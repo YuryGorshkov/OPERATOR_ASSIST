@@ -14,7 +14,7 @@ All notable repository-facing changes are documented here.
 - install runtime dependencies in CI and run the offline lab regressions without downloading speech models
 - initialize the Windows CI Python cache inside a runner step instead of using runner context in job-level environment
 
-Recognition-quality gains and model fine-tuning are pending evaluation on a verified corpus.
+Model fine-tuning remains separate from runtime tuning and requires a larger licensed corpus.
 
 ## v1.2.2 - 2026-09-20
 
@@ -24,6 +24,11 @@ Highlights:
 
 - align the application, wrapper, package, and installer version shown at runtime
 - add a repository contract test that prevents future version drift
+- replace fixed six-second Whisper cuts with pause-aware streaming and timestamp-owned boundary overlap
+- preserve original PCM silence for VAD instead of removing the evidence needed to find safe phrase boundaries
+- keep the decoder's non-speech guard active without matching or blacklisting recognized phrases
+- suppress isolated one-character shutdown debris while preserving short replies such as `да`
+- promote the streaming strategy only after verified multi-voice evaluation and exact replay of a captured control session
 
 ## v1.2.1 - 2026-09-20
 

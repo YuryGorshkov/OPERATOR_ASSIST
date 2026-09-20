@@ -1,4 +1,4 @@
-"""One-variable experiments; baseline always preserves desktop behavior."""
+"""One-variable experiments plus explicit legacy and production controls."""
 
 from dataclasses import dataclass
 
@@ -18,6 +18,7 @@ class Profile:
 PROFILES = {
     profile.name: profile for profile in (
         Profile("baseline"),
+        Profile("production_pause", preprocessing=False),
         Profile("context_off", context_source="none"),
         Profile("raw_context", context_source="raw"),
         Profile("term_hints", use_hotwords=True),
