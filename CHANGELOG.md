@@ -16,6 +16,15 @@ All notable repository-facing changes are documented here.
 
 Recognition-quality gains and model fine-tuning are pending evaluation on a verified corpus.
 
+## v1.2.2 - 2026-09-20
+
+Release-metadata consistency fix.
+
+Highlights:
+
+- align the application, wrapper, package, and installer version shown at runtime
+- add a repository contract test that prevents future version drift
+
 ## v1.2.1 - 2026-09-20
 
 Precise-recognition reliability fix.

@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -50,6 +51,34 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn('Repository = "https://github.com/YuryGorshkov/OPERATOR_ASSIST"', pyproject)
         self.assertIn('[project.optional-dependencies]', pyproject)
         self.assertIn('"pyinstaller>=6.10,<7"', pyproject)
+
+    def test_version_is_consistent_across_runtime_and_packaging(self):
+        version_sources = {
+            "pyproject": (PROJECT_ROOT / "pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
+            "installer": (
+                PROJECT_ROOT / "packaging" / "inno" / "OperatorAssist.iss",
+                r'^\s*#define MyAppVersion\s+"([^"]+)"',
+            ),
+            "entry_wrapper": (
+                PROJECT_ROOT / "operator_assist.py",
+                r'^WRAPPER_VERSION\s*=\s*"([^"]+)"',
+            ),
+            "runtime_wrapper": (
+                PROJECT_ROOT / "operator_assist_chat_bridge_v5_base.py",
+                r'^WRAPPER_VERSION\s*=\s*"([^"]+)"',
+            ),
+            "base_runtime": (
+                PROJECT_ROOT / "operator_assist_runtime" / "base_runtime.py",
+                r'^APP_VERSION\s*=\s*"([^"]+)"',
+            ),
+        }
+        versions = {}
+        for label, (path, pattern) in version_sources.items():
+            match = re.search(pattern, path.read_text(encoding="utf-8"), re.MULTILINE)
+            self.assertIsNotNone(match, f"Missing version in {path}")
+            versions[label] = match.group(1)
+
+        self.assertEqual(1, len(set(versions.values())), versions)
 
     def test_packaging_assets_exist(self):
         expected_files = [
