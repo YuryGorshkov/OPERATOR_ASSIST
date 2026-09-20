@@ -901,6 +901,25 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             return LoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue)
         return runtime.TranscriptionWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue)
 
+    def _recognition_model_name(self):
+        runtime = _base_mod._base
+        model_names = []
+
+        if self._requires_vosk_model():
+            model_names.append(f"Vosk {self._current_model_name()}")
+
+        precise_required = (
+            self._capture_speaker_enabled()
+            and self._current_speaker_mode_key() == runtime.SPEAKER_MODE_PRECISE
+        )
+        if precise_required and self.precise_engine_bundle is not None:
+            bundle = self.precise_engine_bundle
+            model_names.append(
+                f"Whisper {bundle.model_name} ({bundle.device}/{bundle.compute_type})"
+            )
+
+        return " + ".join(model_names) if model_names else self._current_model_name()
+
     def start_transcription(self):
         runtime = _base_mod._base
         vosk_required = self._requires_vosk_model()
@@ -946,7 +965,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.speaker_device_var.get(),
             speaker_mode_key,
             self._current_precise_device_key(),
-            self._current_model_name(),
+            self._recognition_model_name(),
         )
 
         self.stop_transcription()
@@ -987,10 +1006,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             )
         elif speaker_enabled:
             self.hint_var.set(
-                f"Активная модель: {self._current_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
+                f"Активная модель: {self._recognition_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
             )
         else:
-            self.hint_var.set(f"Активная модель: {self._current_model_name()}. Работает только канал оператора.")
+            self.hint_var.set(f"Активная модель: {self._recognition_model_name()}. Работает только канал оператора.")
         self.audio_session_started_at = runtime.time.monotonic()
         self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False

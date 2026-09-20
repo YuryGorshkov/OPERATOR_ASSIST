@@ -749,12 +749,12 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
     def _update_it_mode_hint(self, speaker_source=None):
         if bool(self.it_mode_var.get()):
             message = (
-                f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._current_model_name()}. "
+                f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._recognition_model_name()}. "
                 f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u043a\u043b\u044e\u0447\u0435\u043d, \u0430\u043a\u0442\u0438\u0432\u043d\u043e {self._it_mode_term_count()} \u043f\u0440\u0430\u0432\u0438\u043b \u0441\u043b\u043e\u0432\u0430\u0440\u044f."
             )
         else:
             message = (
-                f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._current_model_name()}. "
+                f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._recognition_model_name()}. "
                 "\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u0435 \u0438\u0434\u0435\u0442 \u0431\u0435\u0437 IT-\u0441\u043b\u043e\u0432\u0430\u0440\u044f."
             )
         if speaker_source is not None:

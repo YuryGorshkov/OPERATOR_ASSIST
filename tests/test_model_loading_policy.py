@@ -1,6 +1,8 @@
 import time
 import unittest
+from types import SimpleNamespace
 
+import operator_assist_chat_bridge_v5_base as precise_runtime
 from operator_assist_runtime import base_runtime
 
 
@@ -89,6 +91,40 @@ class ModelLoadingPolicyTests(unittest.TestCase):
         self.assertIn("large-v3", app.setup_loading_var.value)
         self.assertIn("Прошло", app.setup_loading_var.value)
         self.assertTrue(app.status_var.value.startswith("Загружаю точный режим"))
+
+    def test_precise_only_route_reports_whisper_model(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+        app._capture_mic_enabled = lambda: False
+        app._capture_speaker_enabled = lambda: True
+        app._current_speaker_mode_key = lambda: base_runtime.SPEAKER_MODE_PRECISE
+        app.active_model_dir = None
+        app.precise_engine_bundle = SimpleNamespace(
+            model_name="large-v3",
+            device="cuda",
+            compute_type="int8",
+        )
+
+        self.assertEqual(
+            app._recognition_model_name(),
+            "Whisper large-v3 (cuda/int8)",
+        )
+
+    def test_mixed_route_reports_vosk_and_whisper_models(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+        app._capture_mic_enabled = lambda: True
+        app._capture_speaker_enabled = lambda: True
+        app._current_speaker_mode_key = lambda: base_runtime.SPEAKER_MODE_PRECISE
+        app.active_model_dir = SimpleNamespace(name="vosk-model-ru-0.42")
+        app.precise_engine_bundle = SimpleNamespace(
+            model_name="large-v3",
+            device="cuda",
+            compute_type="int8",
+        )
+
+        self.assertEqual(
+            app._recognition_model_name(),
+            "Vosk vosk-model-ru-0.42 + Whisper large-v3 (cuda/int8)",
+        )
 
 
 if __name__ == "__main__":

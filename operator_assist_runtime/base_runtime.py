@@ -1825,6 +1825,9 @@ class OperatorAssistApp:
             return self.active_model_dir.name
         return "не загружена"
 
+    def _recognition_model_name(self):
+        return self._current_model_name()
+
     def _get_device_id(self, label):
         return int(label.split(":", 1)[0])
 
@@ -1856,7 +1859,7 @@ class OperatorAssistApp:
             "Starting transcription. mic=%s speaker=%s model=%s",
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
-            self._current_model_name(),
+            self._recognition_model_name(),
         )
 
         self.stop_transcription()
@@ -1880,7 +1883,7 @@ class OperatorAssistApp:
         if speaker_enabled:
             self.active_route_info["speaker"] = self._selected_speaker_source_info()
         self.status_var.set("Распознавание запущено")
-        self.hint_var.set(f"Активная модель: {self._current_model_name()}. Блок ChatGPT работает отдельно и не мешает распознаванию.")
+        self.hint_var.set(f"Активная модель: {self._recognition_model_name()}. Блок ChatGPT работает отдельно и не мешает распознаванию.")
         self.audio_session_started_at = time.monotonic()
         self.channel_live_signal_seen = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
@@ -2175,7 +2178,7 @@ class OperatorAssistApp:
         content = (
             f"{APP_TITLE}\n"
             f"Создано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
-            f"Модель: {self._current_model_name()}\n"
+            f"Модель: {self._recognition_model_name()}\n"
             f"Частота распознавания: {TARGET_SAMPLE_RATE} Hz\n"
             f"Лог: {LOG_PATH.name}\n\n"
             "Я / оператор:\n"

@@ -29,6 +29,7 @@ Highlights:
 - keep the decoder's non-speech guard active without matching or blacklisting recognized phrases
 - suppress isolated one-character shutdown debris while preserving short replies such as `да`
 - promote the streaming strategy only after verified multi-voice evaluation and exact replay of a captured control session
+- report the active Whisper or combined Vosk/Whisper route correctly in logs, hints, and saved transcripts
 
 ## v1.2.1 - 2026-09-20
 
