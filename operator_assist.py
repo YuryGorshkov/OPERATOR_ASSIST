@@ -9,7 +9,7 @@ from operator_assist_runtime.technical_terms import (
 )
 
 
-WRAPPER_VERSION = "1.3.1"
+WRAPPER_VERSION = "1.3.2"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [

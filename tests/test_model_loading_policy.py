@@ -1,14 +1,41 @@
 import inspect
+import json
+import tempfile
 import time
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
+import operator_assist_chat_bridge_v3_base as chat_runtime
 import operator_assist_chat_bridge_v5_base as precise_runtime
 import operator_assist as top_runtime
 from operator_assist_runtime import base_runtime
 
 
 class ModelLoadingPolicyTests(unittest.TestCase):
+    def test_chat_settings_persist_selected_precise_model(self):
+        app = chat_runtime.OperatorAssistApp.__new__(chat_runtime.OperatorAssistApp)
+        app.mic_device_var = SimpleNamespace(get=lambda: "Mic")
+        app.speaker_device_var = SimpleNamespace(get=lambda: "Speaker")
+        app.chrome_window_var = SimpleNamespace(get=lambda: "ChatGPT")
+        app.auto_enter_var = SimpleNamespace(get=lambda: False)
+        app._current_capture_mode_key = lambda: "capture_speaker_only"
+        app._current_speaker_mode_key = lambda: base_runtime.SPEAKER_MODE_PRECISE
+        app._current_precise_device_key = lambda: "gpu"
+        app._current_precise_model_key = lambda: base_runtime.PRECISE_MODEL_FAST
+        app._operator_prompt_value = lambda: ""
+        app._refresh_startup_readiness = lambda: None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir) / "operator_assist_settings.json"
+            with mock.patch.object(chat_runtime._base, "SETTINGS_PATH", settings_path):
+                app._save_settings()
+
+            saved = json.loads(settings_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(base_runtime.PRECISE_MODEL_FAST, saved["precise_model"])
+
     def test_top_wrapper_builds_precise_model_selector(self):
         build_ui_source = inspect.getsource(top_runtime.OperatorAssistApp._build_ui)
 

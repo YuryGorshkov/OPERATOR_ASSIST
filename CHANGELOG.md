@@ -6,6 +6,16 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.3.2 - 2026-09-21
+
+Recognition-profile persistence hotfix.
+
+Highlights:
+
+- persist the selected precise Whisper model together with the audio route and compute device
+- prevent `large-v3-turbo` from silently reverting to the heavier `large-v3` after restart
+- cover the production chat-wrapper settings path with a restart regression test
+
 ## v1.3.1 - 2026-09-21
 
 Audio-input diagnostics hotfix.
