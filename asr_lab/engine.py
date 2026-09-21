@@ -8,7 +8,10 @@ import numpy as np
 from operator_assist_runtime.recognition_engines import (
     FasterWhisperBufferedEngine, RecognitionUpdate,
 )
-from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
+from operator_assist_runtime.pause_recognition import (
+    PauseAwareWhisperConfig,
+    PauseAwareWhisperEngine,
+)
 
 
 class ObservedModel:
@@ -72,10 +75,20 @@ class ExperimentalWhisperEngine(FasterWhisperBufferedEngine):
 def make_engine(bundle, profile, *, text_postprocessor, hotwords=""):
     observed = ObservedModel(bundle.model)
     observed_bundle = replace(bundle, model=observed)
-    if profile.name == "production_pause":
+    if profile.engine_kind == "pause":
+        config = PauseAwareWhisperConfig(
+            flush_seconds=profile.pause_flush_seconds,
+            initial_flush_seconds=profile.pause_initial_flush_seconds,
+            overlap_seconds=profile.pause_overlap_seconds,
+            boundary_guard_seconds=profile.pause_boundary_guard_seconds,
+            pause_ms=profile.pause_ms,
+            short_pause_ms=profile.pause_short_pause_ms,
+            pause_min_window_seconds=profile.pause_min_window_seconds,
+        )
         engine = PauseAwareWhisperEngine(
             observed_bundle,
             text_postprocessor=text_postprocessor,
+            config=config,
         )
     elif profile.name == "baseline":
         engine = FasterWhisperBufferedEngine(observed_bundle, text_postprocessor=text_postprocessor)

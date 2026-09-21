@@ -6,6 +6,20 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.4.0 - 2026-09-21
+
+Pause-aware recognition tuning release.
+
+Highlights:
+
+- delay phrase-boundary decoding from 450 ms to 600 ms to avoid cutting natural Russian pauses too early
+- reduce WER on the verified 92-second continuous-stream development sample from 15.38% to 11.54%
+- preserve WER 6.15% and CER 2.00% on nine separately verified clips from three readers
+- improve measured real-time factor on both development checks without changing the selected Whisper model
+- add lab-only one-variable pause profiles so future tuning remains reproducible and separate from production defaults
+
+These measurements use a small single-book development corpus and are directional, not a universal accuracy claim.
+
 ## v1.3.2 - 2026-09-21
 
 Recognition-profile persistence hotfix.

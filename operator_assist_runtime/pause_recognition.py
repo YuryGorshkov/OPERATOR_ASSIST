@@ -27,7 +27,7 @@ class PauseAwareWhisperConfig:
     sample_rate: int = 16000
     flush_seconds: float = 12.0
     min_chunk_seconds: float = 4.0
-    pause_ms: int = 450
+    pause_ms: int = 600
     short_pause_ms: int = 1000
     pause_min_window_seconds: float = 2.5
     overlap_seconds: float = 1.0

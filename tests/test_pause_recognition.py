@@ -6,6 +6,7 @@ import numpy as np
 
 from operator_assist_runtime.pause_recognition import (
     OwnedWord,
+    PauseAwareWhisperConfig,
     PauseAwareWhisperEngine,
     select_owned_words,
 )
@@ -105,6 +106,9 @@ class WordOwnershipTests(unittest.TestCase):
 
 
 class PauseAwareWhisperTests(unittest.TestCase):
+    def test_default_pause_waits_for_stable_phrase_boundary(self):
+        self.assertEqual(600, PauseAwareWhisperConfig().pause_ms)
+
     def test_silence_never_starts_decoder_and_memory_stays_bounded(self):
         model = Model()
         candidate = engine(model)

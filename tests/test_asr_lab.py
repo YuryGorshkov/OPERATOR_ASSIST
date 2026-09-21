@@ -239,6 +239,27 @@ class EngineTests(unittest.TestCase):
         self.assertIs(type(engine), PauseAwareWhisperEngine)
         self.assertFalse(PROFILES["production_pause"].preprocessing)
 
+    def test_pause_tuning_profiles_change_only_declared_runtime_setting(self):
+        expected = {
+            "pause_initial_6": ("initial_flush_seconds", 6.0),
+            "pause_initial_8": ("initial_flush_seconds", 8.0),
+            "pause_flush_16": ("flush_seconds", 16.0),
+            "pause_overlap_1_5": ("overlap_seconds", 1.5),
+            "pause_guard_0_9": ("boundary_guard_seconds", 0.9),
+            "pause_ms_450": ("pause_ms", 450),
+        }
+
+        for profile_name, (field, value) in expected.items():
+            with self.subTest(profile=profile_name):
+                candidate, _observed = make_engine(
+                    bundle(FakeModel("recognized")),
+                    PROFILES[profile_name],
+                    text_postprocessor=lambda text, **_: text,
+                )
+                self.assertIs(type(candidate), PauseAwareWhisperEngine)
+                self.assertEqual(value, getattr(candidate.config, field))
+                self.assertFalse(PROFILES[profile_name].preprocessing)
+
     def test_raw_context_does_not_feed_dictionary_corrections_back(self):
         model = FakeModel("Marvel", "next")
         engine, _ = make_engine(bundle(model), PROFILES["raw_context"], text_postprocessor=lambda text, **_: text.replace("Marvel", "Laravel"))

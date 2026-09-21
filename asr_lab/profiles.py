@@ -6,6 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Profile:
     name: str
+    engine_kind: str = "buffered"
     flush_seconds: float = 6.0
     min_segment_seconds: float = 0.7
     context_source: str = "corrected"
@@ -13,12 +14,55 @@ class Profile:
     vad_silence_ms: int = 350
     preprocessing: bool = True
     use_hotwords: bool = False
+    pause_flush_seconds: float = 12.0
+    pause_initial_flush_seconds: float = 4.0
+    pause_overlap_seconds: float = 1.0
+    pause_boundary_guard_seconds: float = 0.6
+    pause_ms: int = 600
+    pause_short_pause_ms: int = 1000
+    pause_min_window_seconds: float = 2.5
 
 
 PROFILES = {
     profile.name: profile for profile in (
         Profile("baseline"),
-        Profile("production_pause", preprocessing=False),
+        Profile("production_pause", engine_kind="pause", preprocessing=False),
+        Profile(
+            "pause_initial_6",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_initial_flush_seconds=6.0,
+        ),
+        Profile(
+            "pause_initial_8",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_initial_flush_seconds=8.0,
+        ),
+        Profile(
+            "pause_flush_16",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_flush_seconds=16.0,
+        ),
+        Profile(
+            "pause_overlap_1_5",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_overlap_seconds=1.5,
+        ),
+        Profile(
+            "pause_guard_0_9",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_boundary_guard_seconds=0.9,
+        ),
+        Profile(
+            "pause_ms_450",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_ms=450,
+        ),
         Profile("context_off", context_source="none"),
         Profile("raw_context", context_source="raw"),
         Profile("term_hints", use_hotwords=True),
