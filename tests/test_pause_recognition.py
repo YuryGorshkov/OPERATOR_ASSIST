@@ -107,7 +107,10 @@ class WordOwnershipTests(unittest.TestCase):
 
 class PauseAwareWhisperTests(unittest.TestCase):
     def test_default_pause_waits_for_stable_phrase_boundary(self):
-        self.assertEqual(600, PauseAwareWhisperConfig().pause_ms)
+        config = PauseAwareWhisperConfig()
+        self.assertEqual(600, config.pause_ms)
+        self.assertEqual(8, config.beam_size)
+        self.assertEqual(5, config.best_of)
 
     def test_silence_never_starts_decoder_and_memory_stays_bounded(self):
         model = Model()
@@ -127,8 +130,23 @@ class PauseAwareWhisperTests(unittest.TestCase):
 
         self.assertEqual(["yes"], [update.text for update in updates])
         self.assertEqual(1, len(model.calls))
+        self.assertEqual(8, model.calls[0][1]["beam_size"])
+        self.assertEqual(5, model.calls[0][1]["best_of"])
         self.assertTrue(model.calls[0][1]["word_timestamps"])
         self.assertFalse(model.calls[0][1]["condition_on_previous_text"])
+
+    def test_decoder_search_rejects_invalid_types_and_ranges(self):
+        bundle = PreciseEngineBundle(Model(), "fixture", "cpu", "int8", Path("."))
+
+        for value in (True, 0, 11, 5.0):
+            with self.subTest(beam_size=value):
+                with self.assertRaisesRegex(ValueError, "decoder search size"):
+                    PauseAwareWhisperEngine(
+                        bundle,
+                        detector=Detector(),
+                        text_postprocessor=lambda text, **_kwargs: text,
+                        config=PauseAwareWhisperConfig(beam_size=value),
+                    )
 
     def test_guard_rejects_non_speech_without_matching_its_words(self):
         model = Model([segment(0.91, (" arbitrary", 0.1, 0.4))])

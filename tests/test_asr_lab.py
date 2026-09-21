@@ -238,6 +238,7 @@ class EngineTests(unittest.TestCase):
 
         self.assertIs(type(engine), PauseAwareWhisperEngine)
         self.assertFalse(PROFILES["production_pause"].preprocessing)
+        self.assertEqual(8, engine.config.beam_size)
 
     def test_pause_tuning_profiles_change_only_declared_runtime_setting(self):
         expected = {
@@ -247,6 +248,8 @@ class EngineTests(unittest.TestCase):
             "pause_overlap_1_5": ("overlap_seconds", 1.5),
             "pause_guard_0_9": ("boundary_guard_seconds", 0.9),
             "pause_ms_450": ("pause_ms", 450),
+            "pause_beam_5": ("beam_size", 5),
+            "pause_beam_10": ("beam_size", 10),
         }
 
         for profile_name, (field, value) in expected.items():

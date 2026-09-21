@@ -6,6 +6,20 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.4.1 - 2026-09-21
+
+Precise-decoder search tuning release.
+
+Highlights:
+
+- increase the pause-aware Whisper beam width from 5 to 8 without changing the selected model or audio route
+- reduce WER from 8.11% to 6.80% across 32 correlated tempo stress cases up to 1.5x speed
+- reduce WER from 6.15% to 5.38% on nine separately verified clips from three readers
+- preserve identical WER on the verified 92-second continuous-stream development sample
+- retain beam 5 and beam 10 as lab-only controls; beam 10 added cost without another accuracy gain
+
+Beam 8 increased measured processing time by about 6% on these local checks. The corpus is small, single-book and partly synthetic, so the result is directional rather than a universal accuracy claim.
+
 ## v1.4.0 - 2026-09-21
 
 Pause-aware recognition tuning release.

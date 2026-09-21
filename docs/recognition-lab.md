@@ -92,7 +92,8 @@ timed separately from profile comparisons.
 `baseline` preserves the historical fixed-window control: 250 ms replay blocks,
 a 6-second buffer, 0.7-second minimum gap segment, speaker preprocessing and prior
 text. `production_pause` uses the current desktop engine: original PCM, pause-aware
-segmentation, timestamp-owned overlap and decoder-based non-speech rejection.
+segmentation, timestamp-owned overlap, beam width 8 and decoder-based non-speech
+rejection. Lab-only pause beam profiles retain widths 5 and 10 as controls.
 Other profiles change one factor from the fixed-window control:
 
 - `context_off`: disable internal and externally supplied previous-text context.

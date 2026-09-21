@@ -35,6 +35,8 @@ class PauseAwareWhisperConfig:
     initial_flush_seconds: float = 4.0
     vad_silence_ms: int = 350
     no_speech_reject_threshold: float = DEFAULT_NO_SPEECH_REJECT_THRESHOLD
+    beam_size: int = 8
+    best_of: int = 5
 
 
 def _word_key(value):
@@ -158,6 +160,12 @@ class PauseAwareWhisperEngine:
         self.detector = detector if detector is not None else SileroPauseDetector()
         self._logger = logging.getLogger("operator_assist")
         self._validate_config()
+        self._logger.info(
+            "Pause-aware Whisper configured. beam=%s best_of=%s pause_ms=%s",
+            self.config.beam_size,
+            self.config.best_of,
+            self.config.pause_ms,
+        )
 
         self.buffer = bytearray()
         self.buffer_start = 0
@@ -188,6 +196,11 @@ class PauseAwareWhisperEngine:
             raise ValueError("Invalid minimum pause decode window.")
         if not config.min_chunk_seconds <= config.initial_flush_seconds <= config.flush_seconds:
             raise ValueError("Invalid initial pause-aware chunk duration.")
+        search_values = (config.beam_size, config.best_of)
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in search_values):
+            raise ValueError("Invalid pause-aware decoder search size.")
+        if not 1 <= config.beam_size <= 10 or not 1 <= config.best_of <= 10:
+            raise ValueError("Invalid pause-aware decoder search size.")
         filter_no_speech_segments((), config.no_speech_reject_threshold)
 
     def consume_gap(self):
@@ -274,8 +287,8 @@ class PauseAwareWhisperEngine:
             audio,
             language="ru",
             task="transcribe",
-            beam_size=5,
-            best_of=5,
+            beam_size=self.config.beam_size,
+            best_of=self.config.best_of,
             condition_on_previous_text=False,
             initial_prompt=None,
             word_timestamps=True,

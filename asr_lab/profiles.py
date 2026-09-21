@@ -21,6 +21,8 @@ class Profile:
     pause_ms: int = 600
     pause_short_pause_ms: int = 1000
     pause_min_window_seconds: float = 2.5
+    pause_beam_size: int = 8
+    pause_best_of: int = 5
 
 
 PROFILES = {
@@ -62,6 +64,18 @@ PROFILES = {
             engine_kind="pause",
             preprocessing=False,
             pause_ms=450,
+        ),
+        Profile(
+            "pause_beam_5",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_beam_size=5,
+        ),
+        Profile(
+            "pause_beam_10",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_beam_size=10,
         ),
         Profile("context_off", context_source="none"),
         Profile("raw_context", context_source="raw"),
