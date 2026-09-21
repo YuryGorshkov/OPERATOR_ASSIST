@@ -1,10 +1,13 @@
 import unittest
+from array import array
 
 from operator_assist_runtime.audio_diagnostics import (
+    CLIPPING_WARNING_PERCENT,
     NO_SIGNAL_GRACE_SEC,
     SIGNAL_LIVE_THRESHOLD,
     build_route_diagnostic_message,
     describe_signal_state,
+    pcm16_clipping_percent,
 )
 
 
@@ -14,6 +17,12 @@ class AudioDiagnosticsTests(unittest.TestCase):
         self.assertEqual("слабый", describe_signal_state(SIGNAL_LIVE_THRESHOLD))
         self.assertEqual("есть", describe_signal_state(30))
         self.assertEqual("сильный", describe_signal_state(80))
+        self.assertEqual("перегруз", describe_signal_state(80, CLIPPING_WARNING_PERCENT))
+
+    def test_pcm16_clipping_percent_counts_full_scale_samples(self):
+        chunk = array("h", (32767, -32768, 1200, -900)).tobytes()
+
+        self.assertEqual(50.0, pcm16_clipping_percent(chunk))
 
     def test_missing_both_channels_requests_selection(self):
         message = build_route_diagnostic_message(

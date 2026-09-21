@@ -28,9 +28,11 @@ from operator_assist_runtime.technical_terms import (
 )
 from operator_assist_runtime.runtime_paths import application_root, bundle_root, runtime_layout
 from operator_assist_runtime.audio_diagnostics import (
+    CLIPPING_WARNING_PERCENT,
     SIGNAL_LIVE_THRESHOLD,
     build_route_diagnostic_message,
     describe_signal_state,
+    pcm16_clipping_percent,
 )
 from operator_assist_runtime.startup_readiness import build_startup_summary
 from operator_assist_runtime.startup_readiness import (
@@ -58,7 +60,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -586,8 +588,9 @@ class TranscriptionWorker:
 
     def _emit_level(self, chunk):
         level_percent = pcm16_level_percent(chunk)
+        clipping_percent = pcm16_clipping_percent(chunk)
         self.last_level_percent = level_percent
-        self.ui_queue.put(("level", self.label, level_percent))
+        self.ui_queue.put(("level", self.label, level_percent, clipping_percent))
 
     def _process_chunk_for_recognition(self, chunk):
         if not chunk or self.audio_preprocessor is None:
@@ -760,6 +763,7 @@ class OperatorAssistApp:
         )
         self.audio_session_started_at = 0.0
         self.channel_live_signal_seen = {"me": False, "speaker": False}
+        self.channel_overload_detected = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.last_overlap_warning_at = 0.0
         self.recent_mic_finals = deque()
@@ -1331,6 +1335,7 @@ class OperatorAssistApp:
             self.hint_var.set("Остановите сеанс перед сменой аудиоисточника.")
             return
         self.channel_overlap_warning_active = False
+        self.channel_overload_detected = {"me": False, "speaker": False}
         self._refresh_audio_diagnostics()
 
     def _set_audio_controls_running_state(self, running):
@@ -1437,6 +1442,27 @@ class OperatorAssistApp:
             self.route_diag_var.set(message)
             return
 
+        overloaded = [
+            label
+            for label in ("me", "speaker")
+            if self.channel_overload_detected.get(label)
+        ]
+        if overloaded:
+            if overloaded == ["me"]:
+                target = "микрофон оператора"
+                action = "уменьшите уровень микрофона в Windows"
+            elif overloaded == ["speaker"]:
+                target = "канал собеседника"
+                action = "уменьшите громкость воспроизведения или уровень Stereo Mix"
+            else:
+                target = "оба аудиоканала"
+                action = "уменьшите уровни записи и воспроизведения в Windows"
+            self.route_diag_var.set(
+                f"Диагностика: перегруз ({target}), звук обрезается; {action}. "
+                "После изменения остановите и запустите распознавание снова."
+            )
+            return
+
         mic_info = self._selected_mic_source_info()
         speaker_info = self._selected_speaker_source_info()
         seconds_since_start = 0.0
@@ -1479,13 +1505,14 @@ class OperatorAssistApp:
         self.speaker_signal_var.set("Сигнал: тишина" if self._capture_speaker_enabled() else "Сигнал: канал выключен")
         self.audio_session_started_at = 0.0
         self.channel_live_signal_seen = {"me": False, "speaker": False}
+        self.channel_overload_detected = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.last_overlap_warning_at = 0.0
         self._set_route_diag_message()
         self._refresh_startup_readiness()
         self._update_start_button_state()
 
-    def _set_channel_signal(self, label, level_percent):
+    def _set_channel_signal(self, label, level_percent, clipping_percent=0.0):
         if label == "me":
             level_var = self.mic_level_var
             signal_var = self.mic_signal_var
@@ -1497,8 +1524,23 @@ class OperatorAssistApp:
         if level_percent >= SIGNAL_LIVE_THRESHOLD:
             self.channel_live_signal_seen[label] = True
 
-        state_text = describe_signal_state(level_percent)
-        signal_var.set(f"Сигнал: {state_text} ({level_percent}%)")
+        overloaded = clipping_percent >= CLIPPING_WARNING_PERCENT
+        if overloaded and not self.channel_overload_detected.get(label):
+            LOGGER.warning(
+                "Audio clipping detected. label=%s level=%s clipping_percent=%.2f",
+                label,
+                level_percent,
+                clipping_percent,
+            )
+        self.channel_overload_detected[label] |= overloaded
+
+        state_text = describe_signal_state(level_percent, clipping_percent)
+        if overloaded:
+            signal_var.set(
+                f"Сигнал: {state_text} ({level_percent}%, клиппинг {clipping_percent:.1f}%)"
+            )
+        else:
+            signal_var.set(f"Сигнал: {state_text} ({level_percent}%)")
         if not self.channel_overlap_warning_active:
             self._set_route_diag_message()
 
@@ -1932,6 +1974,7 @@ class OperatorAssistApp:
         self.hint_var.set(f"Активная модель: {self._recognition_model_name()}. Блок ChatGPT работает отдельно и не мешает распознаванию.")
         self.audio_session_started_at = time.monotonic()
         self.channel_live_signal_seen = {"me": False, "speaker": False}
+        self.channel_overload_detected = {"me": False, "speaker": False}
         self.channel_overlap_warning_active = False
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
@@ -1965,6 +2008,7 @@ class OperatorAssistApp:
         self._apply_default_devices()
         self.hint_var.set("Список аудиоустройств обновлен.")
         self.channel_overlap_warning_active = False
+        self.channel_overload_detected = {"me": False, "speaker": False}
         self._refresh_audio_diagnostics()
 
     def refresh_startup_checks(self):
@@ -2090,8 +2134,9 @@ class OperatorAssistApp:
                     else:
                         self.speaker_partial_var.set(text or "Пока пусто")
                 elif kind == "level":
-                    _, label, level_percent = message
-                    self._set_channel_signal(label, level_percent)
+                    _, label, level_percent, *details = message
+                    clipping_percent = details[0] if details else 0.0
+                    self._set_channel_signal(label, level_percent, clipping_percent)
                 elif kind == "status":
                     _, label, text = message
                     if label == "me":

@@ -6,6 +6,18 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.3.1 - 2026-09-21
+
+Audio-input diagnostics hotfix.
+
+Highlights:
+
+- detect sustained near-full-scale PCM samples before recognition
+- show a clear `перегруз` state with the measured clipping percentage
+- keep the overload warning visible for the session and explain which Windows level to reduce
+- preserve compatibility with older three-field level events used by tests and wrappers
+- verify both Whisper profiles on the same real Stereo Mix capture; no phrase-specific filtering is used
+
 ## v1.3.0 - 2026-09-20
 
 Selectable Whisper performance profiles and measured startup improvements.

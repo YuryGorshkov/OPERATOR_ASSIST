@@ -1,11 +1,35 @@
 """Pure audio-diagnostic helpers for OPERATOR_ASSIST."""
 
+from array import array
+import sys
+
 SIGNAL_LIVE_THRESHOLD = 8
 NO_SIGNAL_GRACE_SEC = 3.0
+PCM16_CLIP_ABSOLUTE_THRESHOLD = 32700
+CLIPPING_WARNING_PERCENT = 0.5
 
 
-def describe_signal_state(level_percent):
+def pcm16_clipping_percent(chunk, *, threshold=PCM16_CLIP_ABSOLUTE_THRESHOLD):
+    """Return the share of PCM16 samples that are effectively full scale."""
+    if not chunk:
+        return 0.0
+
+    usable_bytes = len(chunk) - (len(chunk) % 2)
+    if not usable_bytes:
+        return 0.0
+
+    samples = array("h")
+    samples.frombytes(chunk[:usable_bytes])
+    if sys.byteorder != "little":
+        samples.byteswap()
+    clipped = sum(abs(sample) >= threshold for sample in samples)
+    return clipped * 100.0 / len(samples)
+
+
+def describe_signal_state(level_percent, clipping_percent=0.0):
     """Map the raw level percentage to a user-facing state label."""
+    if clipping_percent >= CLIPPING_WARNING_PERCENT:
+        return "перегруз"
     if level_percent >= 60:
         return "сильный"
     if level_percent >= 25:
