@@ -1,12 +1,69 @@
+import inspect
 import time
 import unittest
 from types import SimpleNamespace
 
 import operator_assist_chat_bridge_v5_base as precise_runtime
+import operator_assist as top_runtime
 from operator_assist_runtime import base_runtime
 
 
 class ModelLoadingPolicyTests(unittest.TestCase):
+    def test_top_wrapper_builds_precise_model_selector(self):
+        build_ui_source = inspect.getsource(top_runtime.OperatorAssistApp._build_ui)
+
+        self.assertIn("self.precise_model_combo =", build_ui_source)
+        self.assertIn("textvariable=self.precise_model_var", build_ui_source)
+        self.assertIn("self._on_precise_model_selected", build_ui_source)
+
+    def test_top_wrapper_applies_saved_precise_model_before_speaker_mode(self):
+        method_names = []
+        app = top_runtime.OperatorAssistApp.__new__(top_runtime.OperatorAssistApp)
+
+        class FakeCombo(dict):
+            pass
+
+        app.mic_devices = [{"name": "Mic"}]
+        app.speaker_sources = [{"label": "Speaker"}]
+        app.mic_combo = FakeCombo()
+        app.speaker_combo = FakeCombo()
+        app.capture_mode_combo = FakeCombo()
+        app.speaker_mode_combo = FakeCombo()
+        app.precise_device_combo = FakeCombo()
+        app.precise_model_combo = FakeCombo()
+        app.settings = {
+            "mic_device": "Mic",
+            "speaker_device": "Speaker",
+            "precise_model": base_runtime.PRECISE_MODEL_FAST,
+        }
+        app.default_loopback_label = None
+        app._device_label = lambda device: device["name"]
+        app._capture_mode_labels = lambda: []
+        app._speaker_mode_labels = lambda: []
+        app._precise_device_labels = lambda: []
+        app._apply_default_capture_mode = lambda: method_names.append("capture")
+        app._apply_default_precise_device = lambda: method_names.append("device")
+        app._apply_default_precise_model = lambda: method_names.append("model")
+        app._apply_default_speaker_mode = lambda: method_names.append("speaker")
+        app._set_audio_controls_running_state = lambda _running: None
+        app._find_mic_label = lambda _keywords: "Mic"
+        app._find_speaker_label = lambda: "Speaker"
+        app._current_capture_mode_key = lambda: "capture"
+        app._current_speaker_mode_key = lambda: "speaker"
+        app._current_precise_device_key = lambda: "gpu"
+        app._current_precise_model_key = lambda: base_runtime.PRECISE_MODEL_FAST
+        app._refresh_audio_diagnostics = lambda: None
+        app.mic_device_var = SimpleNamespace(set=lambda _value: None, get=lambda: "Mic")
+        app.speaker_device_var = SimpleNamespace(set=lambda _value: None, get=lambda: "Speaker")
+
+        app._apply_default_devices()
+
+        self.assertEqual(["capture", "device", "model", "speaker"], method_names)
+        self.assertEqual(
+            [label for _key, label in base_runtime.PRECISE_MODEL_CHOICES],
+            app.precise_model_combo["values"],
+        )
+
     def test_precise_model_labels_round_trip_and_keep_quality_default(self):
         for key, label in base_runtime.PRECISE_MODEL_CHOICES:
             self.assertEqual(key, base_runtime.precise_model_key_from_label(label))

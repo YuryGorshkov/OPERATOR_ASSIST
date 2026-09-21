@@ -778,9 +778,13 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.capture_mode_combo["values"] = self._capture_mode_labels()
         self.speaker_mode_combo["values"] = self._speaker_mode_labels()
         self.precise_device_combo["values"] = self._precise_device_labels()
+        self.precise_model_combo["values"] = [
+            label for _key, label in _runtime.PRECISE_MODEL_CHOICES
+        ]
         self._apply_default_capture_mode()
-        self._apply_default_speaker_mode()
         self._apply_default_precise_device()
+        self._apply_default_precise_model()
+        self._apply_default_speaker_mode()
         self._set_audio_controls_running_state(False)
 
         if not mic_labels:
@@ -813,12 +817,13 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.speaker_device_var.set(speaker_default or speaker_labels[0])
 
         _runtime.LOGGER.info(
-            "Default devices selected in IT wrapper. mic=%s speaker=%s capture_mode=%s speaker_mode=%s precise_device=%s",
+            "Default devices selected in IT wrapper. mic=%s speaker=%s capture_mode=%s speaker_mode=%s precise_device=%s precise_model=%s",
             self.mic_device_var.get(),
             self.speaker_device_var.get(),
             self._current_capture_mode_key(),
             self._current_speaker_mode_key(),
             self._current_precise_device_key(),
+            self._current_precise_model_key(),
         )
         self._refresh_audio_diagnostics()
 
@@ -895,6 +900,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         runtime.tk.Label(controls, text="\u0421\u043e\u0431\u0435\u0441\u0435\u0434\u043d\u0438\u043a / \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 \u0437\u0432\u0443\u043a", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=0, column=1, sticky="w", padx=(16, 0))
         runtime.tk.Label(controls, text="Активные каналы", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=(12, 0))
         runtime.tk.Label(controls, text="Режим собеседника", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=2, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
+        runtime.tk.Label(controls, text="Модель точного режима", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=4, column=0, sticky="w", pady=(12, 0))
         runtime.tk.Label(controls, text="Вычислитель точного режима", bg="white", fg="#5f7184", font=("Segoe UI", 10)).grid(row=4, column=1, sticky="w", padx=(16, 0), pady=(12, 0))
 
         self.mic_combo = runtime.ttk.Combobox(controls, textvariable=self.mic_device_var, state="readonly", width=48)
@@ -917,6 +923,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         )
         self.speaker_mode_combo.grid(row=3, column=1, sticky="ew", padx=(16, 0), pady=(6, 0))
         self.speaker_mode_combo.bind("<<ComboboxSelected>>", self._on_speaker_mode_selected)
+        self.precise_model_combo = runtime.ttk.Combobox(
+            controls,
+            textvariable=self.precise_model_var,
+            state="disabled",
+            width=48,
+        )
+        self.precise_model_combo.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+        self.precise_model_combo.bind("<<ComboboxSelected>>", self._on_precise_model_selected)
         self.precise_device_combo = runtime.ttk.Combobox(
             controls,
             textvariable=self.precise_device_var,
