@@ -233,6 +233,9 @@ if (-not (Test-Path -LiteralPath $builtBundleRoot)) {
 }
 
 Write-Step "Assembling portable release layout"
+# NoClean keeps expensive PyInstaller intermediates, but the distributable layout
+# must always be assembled from an empty directory to avoid nested stale bundles.
+Remove-TreeSafe -TargetPath $portableRoot
 Copy-Item -LiteralPath $builtBundleRoot -Destination $portableRoot -Recurse -Force
 Ensure-Directory -TargetPath (Join-Path $portableRoot "data\models")
 Ensure-Directory -TargetPath (Join-Path $portableRoot "data\logs")

@@ -119,6 +119,20 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertEqual(1, len(matching_lines), (file_name, matching_lines))
             self.assertIn("onlyifdoesntexist", matching_lines[0])
 
+    def test_release_layout_is_reset_even_for_no_clean_builds(self):
+        build_script = (
+            PROJECT_ROOT / "scripts" / "Build-Release.ps1"
+        ).read_text(encoding="utf-8")
+
+        reset = "Remove-TreeSafe -TargetPath $portableRoot"
+        assemble = (
+            "Copy-Item -LiteralPath $builtBundleRoot "
+            "-Destination $portableRoot -Recurse -Force"
+        )
+        self.assertIn(reset, build_script)
+        self.assertIn(assemble, build_script)
+        self.assertLess(build_script.index(reset), build_script.index(assemble))
+
     def test_branding_assets_exist(self):
         expected_files = [
             PROJECT_ROOT / "assets" / "logo-enot.png",
