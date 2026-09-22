@@ -100,6 +100,25 @@ class RepositoryContractTests(unittest.TestCase):
 
         self.assertIn('"operator_assist_runtime.pause_recognition"', spec)
 
+    def test_installer_preserves_editable_config_files(self):
+        installer = (
+            PROJECT_ROOT / "packaging" / "inno" / "OperatorAssist.iss"
+        ).read_text(encoding="utf-8")
+
+        for file_name in (
+            "technical_terms.json",
+            "custom_terms.txt",
+            "chatgpt_prompt_template.txt",
+        ):
+            matching_lines = [
+                line for line in installer.splitlines()
+                if line.startswith(
+                    f'Source: "{{#MyPortableRoot}}\\config\\{file_name}"'
+                )
+            ]
+            self.assertEqual(1, len(matching_lines), (file_name, matching_lines))
+            self.assertIn("onlyifdoesntexist", matching_lines[0])
+
     def test_branding_assets_exist(self):
         expected_files = [
             PROJECT_ROOT / "assets" / "logo-enot.png",

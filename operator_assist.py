@@ -9,7 +9,7 @@ from operator_assist_runtime.technical_terms import (
 )
 
 
-WRAPPER_VERSION = "1.4.2"
+WRAPPER_VERSION = "1.5.0"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -664,6 +664,7 @@ def default_technical_terms_content():
 
 _TECHNICAL_TERMS_MANAGER = TechnicalTermsManager(
     get_terms_path=lambda: _runtime.TECHNICAL_TERMS_PATH,
+    get_custom_terms_path=lambda: _runtime.CUSTOM_TERMS_PATH,
     get_logger=lambda: _runtime.LOGGER,
     normalize_name=_runtime.normalize_name,
     short_text=_runtime.short_text,
@@ -709,6 +710,7 @@ _runtime.set_active_technical_modes = set_active_technical_modes
 _runtime.get_active_technical_modes = get_active_technical_modes
 
 _runtime.ensure_text_file(_runtime.TECHNICAL_TERMS_PATH, default_technical_terms_content())
+_runtime.ensure_text_file(_runtime.CUSTOM_TERMS_PATH, _runtime.default_custom_terms_content())
 load_technical_terms(force=True)
 
 
@@ -737,6 +739,9 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
     def _it_mode_term_count(self):
         return get_available_technical_modes().get("it_mode", {}).get("term_count", 0)
 
+    def _custom_term_count(self):
+        return load_technical_terms().get("custom_term_count", 0)
+
     def _sync_it_mode_button(self):
         enabled = bool(self.it_mode_var.get())
         self.it_mode_button_var.set("IT \u0440\u0435\u0436\u0438\u043c: \u0412\u041a\u041b" if enabled else "IT \u0440\u0435\u0436\u0438\u043c: \u0432\u044b\u043a\u043b")
@@ -750,13 +755,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         if bool(self.it_mode_var.get()):
             message = (
                 f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._recognition_model_name()}. "
-                f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u043a\u043b\u044e\u0447\u0435\u043d, \u0430\u043a\u0442\u0438\u0432\u043d\u043e {self._it_mode_term_count()} \u043f\u0440\u0430\u0432\u0438\u043b \u0441\u043b\u043e\u0432\u0430\u0440\u044f."
+                f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u043a\u043b\u044e\u0447\u0435\u043d, \u0430\u043a\u0442\u0438\u0432\u043d\u043e {self._it_mode_term_count()} \u043f\u0440\u0430\u0432\u0438\u043b. "
             )
         else:
             message = (
                 f"\u0410\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u043c\u043e\u0434\u0435\u043b\u044c: {self._recognition_model_name()}. "
-                "\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u0435 \u0438\u0434\u0435\u0442 \u0431\u0435\u0437 IT-\u0441\u043b\u043e\u0432\u0430\u0440\u044f."
+                "\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u0435 \u0438\u0434\u0435\u0442 \u0431\u0435\u0437 IT-\u0441\u043b\u043e\u0432\u0430\u0440\u044f. "
             )
+        message += f"\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u0438\u0445 \u0437\u0430\u043c\u0435\u043d: {self._custom_term_count()}."
         if speaker_source is not None:
             message = f"{message} \u0421\u043e\u0431\u0435\u0441\u0435\u0434\u043d\u0438\u043a \u0437\u0430\u0445\u0432\u0430\u0442\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u0447\u0435\u0440\u0435\u0437 {speaker_source['mode_label']}."
         self.hint_var.set(message)
@@ -969,6 +975,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         actions_right.pack(side="right")
         self.it_mode_button = runtime.tk.Button(actions_right, textvariable=self.it_mode_button_var, command=self.toggle_it_mode, bg="#f6f8fb", fg="#17324d", relief="flat", padx=12, pady=8)
         self.it_mode_button.pack(side="left", padx=(0, 8))
+        runtime.tk.Button(actions_right, text="\u0421\u043b\u043e\u0432\u0430\u0440\u044c", command=self.open_custom_terms_file, bg="#f6f8fb", fg="#17324d", relief="flat", padx=12, pady=8).pack(side="left", padx=(0, 8))
         runtime.tk.Button(actions_right, text="\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u043e\u0431\u0435\u0441\u0435\u0434\u043d\u0438\u043a\u0430", command=self.copy_speaker_text, bg="#fff4df", fg="#5b4611", relief="flat", padx=12, pady=8).pack(side="left", padx=(0, 8))
         runtime.tk.Button(actions_right, text="\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432\u0441\u0451", command=self.copy_all_text, bg="#eef6ff", fg="#17406d", relief="flat", padx=12, pady=8).pack(side="left", padx=(0, 8))
         runtime.tk.Button(actions_right, text="\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c TXT", command=self.save_transcript, bg="#e8f8f2", fg="#0b5d4f", relief="flat", padx=12, pady=8).pack(side="left", padx=(0, 8))
@@ -1000,15 +1007,18 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         if active_modes:
             self.hint_var.set(
-                f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u043a\u043b\u044e\u0447\u0435\u043d. \u0410\u043a\u0442\u0438\u0432\u043d\u043e {self._it_mode_term_count()} \u043f\u0440\u0430\u0432\u0438\u043b \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0441\u043b\u043e\u0432\u0430\u0440\u044f."
+                f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u043a\u043b\u044e\u0447\u0435\u043d. \u0410\u043a\u0442\u0438\u0432\u043d\u043e {self._it_mode_term_count()} \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0438 {self._custom_term_count()} \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u0438\u0445 \u043f\u0440\u0430\u0432\u0438\u043b."
             )
         else:
-            self.hint_var.set("IT \u0440\u0435\u0436\u0438\u043c \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d. \u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u0435 \u0438\u0434\u0435\u0442 \u0431\u0435\u0437 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0441\u043b\u043e\u0432\u0430\u0440\u044f.")
+            self.hint_var.set(
+                f"IT \u0440\u0435\u0436\u0438\u043c \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d. \u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u0438\u0445 \u043f\u0440\u0430\u0432\u0438\u043b: {self._custom_term_count()}."
+            )
 
         _runtime.LOGGER.info(
-            "IT mode toggled. active_modes=%s rules=%s",
+            "IT mode toggled. active_modes=%s rules=%s custom_rules=%s",
             list(active_modes),
             self._it_mode_term_count(),
+            self._custom_term_count(),
         )
 
     def start_transcription(self):
@@ -1019,9 +1029,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         if self.workers and "speaker" in self.workers:
             self._update_it_mode_hint(speaker_source=speaker_source)
             _runtime.LOGGER.info(
-                "Transcription started with technical modes=%s rules=%s",
+                "Transcription started with technical modes=%s rules=%s custom_rules=%s",
                 list(active_modes),
                 self._it_mode_term_count(),
+                self._custom_term_count(),
             )
 
 

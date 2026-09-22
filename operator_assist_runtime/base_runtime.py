@@ -60,7 +60,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.5.0"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -89,6 +89,7 @@ TRANSCRIPTS_DIR = ROOT_DIR / "transcripts"
 PROMPT_TEMPLATE_PATH = ROOT_DIR / "chatgpt_prompt_template.txt"
 BRIDGE_SCRIPT_PATH = ROOT_DIR / "scripts" / "paste_to_chat_window.vbs"
 TECHNICAL_TERMS_PATH = ROOT_DIR / "technical_terms.json"
+CUSTOM_TERMS_PATH = ROOT_DIR / "custom_terms.txt"
 APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
 APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
 APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
@@ -117,7 +118,8 @@ PRECISE_MODEL_CHOICES = (
 def apply_runtime_layout(base_dir=None, *, bundle_dir=None, frozen=None):
     global BASE_DIR, BUNDLE_DIR, PACKAGED_LAYOUT
     global DATA_DIR, CONFIG_DIR, SUPPORT_DIR, ASSETS_DIR, MODELS_DIR
-    global SETTINGS_PATH, TRANSCRIPTS_DIR, PROMPT_TEMPLATE_PATH, BRIDGE_SCRIPT_PATH, TECHNICAL_TERMS_PATH
+    global SETTINGS_PATH, TRANSCRIPTS_DIR, PROMPT_TEMPLATE_PATH, BRIDGE_SCRIPT_PATH
+    global TECHNICAL_TERMS_PATH, CUSTOM_TERMS_PATH
     global APP_LOGO_PATH, APP_LOGO_SMALL_PATH, APP_LOGO_LARGE_PATH, APP_ICON_PATH, MODEL_CANDIDATES
 
     resolved_base = Path(base_dir).resolve() if base_dir is not None else ROOT_DIR
@@ -137,6 +139,7 @@ def apply_runtime_layout(base_dir=None, *, bundle_dir=None, frozen=None):
     PROMPT_TEMPLATE_PATH = layout["prompt_template_path"]
     BRIDGE_SCRIPT_PATH = layout["bridge_script_path"]
     TECHNICAL_TERMS_PATH = layout["technical_terms_path"]
+    CUSTOM_TERMS_PATH = layout["custom_terms_path"]
     APP_LOGO_PATH = ASSETS_DIR / "logo-enot.png"
     APP_LOGO_SMALL_PATH = ASSETS_DIR / "logo-enot-72.png"
     APP_LOGO_LARGE_PATH = ASSETS_DIR / "logo-enot-128.png"
@@ -166,6 +169,15 @@ def default_technical_terms_payload():
 
 def default_technical_terms_content():
     return serialize_terms_payload(default_technical_terms_payload())
+
+
+def default_custom_terms_content():
+    return (
+        "# Пользовательский словарь распознавания OPERATOR_ASSIST\n"
+        "# Одна замена на строку: как распознано = как должно быть\n"
+        "# Строки с символом # в начале не применяются.\n"
+        "# Пример: нинарадове = Ненарадове\n"
+    )
 
 
 def resolve_logs_dir():
@@ -233,6 +245,7 @@ def setup_logging():
     logger.info("Assets dir=%s", ASSETS_DIR)
     logger.info("Model candidates=%s", [str(path) for path in MODEL_CANDIDATES])
     logger.info("Technical terms path=%s", TECHNICAL_TERMS_PATH)
+    logger.info("Custom terms path=%s", CUSTOM_TERMS_PATH)
     return logger
 
 
@@ -368,6 +381,7 @@ _TECHNICAL_TERMS_MANAGER = TechnicalTermsManager(
     normalize_name=normalize_name,
     short_text=short_text,
     default_payload_factory=default_technical_terms_payload,
+    get_custom_terms_path=lambda: CUSTOM_TERMS_PATH,
 )
 
 
@@ -865,6 +879,7 @@ class OperatorAssistApp:
         ensure_text_file(PROMPT_TEMPLATE_PATH, default_prompt_template())
         ensure_text_file(BRIDGE_SCRIPT_PATH, bridge_script_content())
         ensure_text_file(TECHNICAL_TERMS_PATH, default_technical_terms_content())
+        ensure_text_file(CUSTOM_TERMS_PATH, default_custom_terms_content())
         ensure_text_file(models_root() / "README.txt", default_models_help_content())
 
     def _build_startup_readiness(self, parent):
@@ -2292,6 +2307,16 @@ class OperatorAssistApp:
         os.startfile(str(LOGS_DIR))
         self.hint_var.set(f"Открыта папка логов: {LOGS_DIR}")
         LOGGER.info("Opened logs folder: %s", LOGS_DIR)
+
+    def open_custom_terms_file(self):
+        ensure_text_file(CUSTOM_TERMS_PATH, default_custom_terms_content())
+        os.startfile(str(CUSTOM_TERMS_PATH))
+        payload = load_technical_terms(force=True)
+        self.hint_var.set(
+            "Открыт пользовательский словарь. Сохраните файл; правила применятся при следующем старте. "
+            f"Сейчас корректных правил: {payload.get('custom_term_count', 0)}."
+        )
+        LOGGER.info("Opened custom terms file: %s", CUSTOM_TERMS_PATH)
 
     def open_models_folder(self):
         self._ensure_runtime_helper_files()

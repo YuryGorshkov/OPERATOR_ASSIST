@@ -4,6 +4,10 @@ import json
 import re
 
 
+MAX_CUSTOM_TERM_RULES = 500
+MAX_CUSTOM_TERM_LENGTH = 160
+
+
 def serialize_terms_payload(payload):
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -17,12 +21,14 @@ class TechnicalTermsManager:
         normalize_name,
         short_text,
         default_payload_factory,
+        get_custom_terms_path=None,
     ):
         self._get_terms_path = get_terms_path
         self._get_logger = get_logger
         self._normalize_name = normalize_name
         self._short_text = short_text
         self._default_payload_factory = default_payload_factory
+        self._get_custom_terms_path = get_custom_terms_path
         self._active_modes = tuple()
         self._cache_key = None
         self._payload = None
@@ -31,13 +37,22 @@ class TechnicalTermsManager:
     def default_content(self):
         return serialize_terms_payload(self._default_payload_factory())
 
-    def _cache_key_for_path(self):
-        path = self._get_terms_path()
+    @staticmethod
+    def _path_cache_key(path):
+        if path is None:
+            return None
         try:
             stat = path.stat()
             return (str(path), stat.st_mtime_ns, stat.st_size)
         except OSError:
             return (str(path), None, None)
+
+    def _cache_key_for_paths(self):
+        custom_path = self._get_custom_terms_path() if self._get_custom_terms_path else None
+        return (
+            self._path_cache_key(self._get_terms_path()),
+            self._path_cache_key(custom_path),
+        )
 
     def _normalize_mapping(self, raw_mapping):
         normalized = {}
@@ -49,8 +64,55 @@ class TechnicalTermsManager:
                     normalized[key] = value
         return normalized
 
+    def _load_custom_replacements(self):
+        if self._get_custom_terms_path is None:
+            return {}, None, tuple()
+
+        path = self._get_custom_terms_path()
+        if not path.exists():
+            return {}, str(path), tuple()
+
+        replacements = {}
+        invalid_lines = []
+        try:
+            lines = path.read_text(encoding="utf-8-sig").splitlines()
+        except Exception:
+            logger = self._get_logger()
+            if logger is not None:
+                logger.exception("Failed to load custom terms from %s", path)
+            return {}, str(path), tuple()
+
+        for line_number, raw_line in enumerate(lines, start=1):
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            source, separator, target = line.partition("=")
+            key = self._normalize_name(source)
+            value = " ".join(target.split())
+            if (
+                not separator
+                or not key
+                or not value
+                or len(key) > MAX_CUSTOM_TERM_LENGTH
+                or len(value) > MAX_CUSTOM_TERM_LENGTH
+                or len(replacements) >= MAX_CUSTOM_TERM_RULES
+            ):
+                invalid_lines.append(line_number)
+                continue
+            replacements[key] = value
+
+        if invalid_lines:
+            logger = self._get_logger()
+            if logger is not None:
+                logger.warning(
+                    "Ignored invalid custom term lines. path=%s lines=%s",
+                    path,
+                    ",".join(str(number) for number in invalid_lines),
+                )
+        return replacements, str(path), tuple(invalid_lines)
+
     def load(self, force=False):
-        cache_key = self._cache_key_for_path()
+        cache_key = self._cache_key_for_paths()
         if not force and cache_key == self._cache_key and self._payload is not None:
             return self._payload
 
@@ -93,23 +155,33 @@ class TechnicalTermsManager:
                     "term_count": len(replacements),
                 }
 
+        custom_replacements, custom_source, invalid_custom_lines = (
+            self._load_custom_replacements()
+        )
+
         self._cache_key = cache_key
         self._payload = {
             "enabled": enabled,
             "replacements": global_replacements,
             "modes": modes,
             "source": source,
+            "custom_replacements": custom_replacements,
+            "custom_term_count": len(custom_replacements),
+            "custom_source": custom_source,
+            "invalid_custom_lines": invalid_custom_lines,
         }
         self._resolved_terms_cache = {}
 
         logger = self._get_logger()
         if logger is not None:
             logger.info(
-                "Technical terms loaded. enabled=%s global_terms=%s modes=%s source=%s",
+                "Technical terms loaded. enabled=%s global_terms=%s custom_terms=%s modes=%s source=%s custom_source=%s",
                 enabled,
                 len(global_replacements),
+                len(custom_replacements),
                 {name: info["term_count"] for name, info in modes.items()},
                 source,
+                custom_source,
             )
         return self._payload
 
@@ -143,6 +215,7 @@ class TechnicalTermsManager:
             mode_payload = payload.get("modes", {}).get(mode_name)
             if mode_payload:
                 combined.update(mode_payload.get("replacements", {}))
+        combined.update(payload.get("custom_replacements", {}))
 
         if not combined:
             resolved = ({}, None)

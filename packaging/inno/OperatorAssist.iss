@@ -2,7 +2,7 @@
   #define MyAppName "OPERATOR_ASSIST"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "1.4.2"
+  #define MyAppVersion "1.5.0"
 #endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "Yury Gorshkov"
@@ -52,7 +52,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#MyPortableRoot}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyPortableRoot}\*"; DestDir: "{app}"; Excludes: "config\technical_terms.json,config\custom_terms.txt,config\chatgpt_prompt_template.txt"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyPortableRoot}\config\technical_terms.json"; DestDir: "{app}\config"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#MyPortableRoot}\config\custom_terms.txt"; DestDir: "{app}\config"; Flags: ignoreversion onlyifdoesntexist
+Source: "{#MyPortableRoot}\config\chatgpt_prompt_template.txt"; DestDir: "{app}\config"; Flags: ignoreversion onlyifdoesntexist
 
 [Icons]
 Name: "{group}\OPERATOR_ASSIST"; Filename: "{app}\{#MyAppExeName}"

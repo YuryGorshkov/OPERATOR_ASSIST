@@ -108,6 +108,64 @@ class TechnicalTermsManagerTests(unittest.TestCase):
             self.assertEqual(str(terms_path), payload["source"])
             self.assertEqual("Redis", manager.apply("редис"))
 
+    def test_custom_terms_override_modes_without_decoder_bias(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            terms_path = root / "technical_terms.json"
+            custom_path = root / "custom_terms.txt"
+            custom_path.write_text(
+                "# личные имена\n"
+                "нинарадове = Ненарадове\n"
+                "ларавел = Laravel Custom\n",
+                encoding="utf-8",
+            )
+            manager = TechnicalTermsManager(
+                get_terms_path=lambda: terms_path,
+                get_custom_terms_path=lambda: custom_path,
+                get_logger=build_logger,
+                normalize_name=normalize_name,
+                short_text=short_text,
+                default_payload_factory=lambda: {
+                    "enabled": True,
+                    "replacements": {},
+                    "modes": {
+                        "it_mode": {"replacements": {"ларавел": "Laravel"}}
+                    },
+                },
+            )
+
+            payload = manager.load()
+            self.assertEqual(2, payload["custom_term_count"])
+            self.assertEqual(
+                "Ненарадове и Laravel Custom",
+                manager.apply(
+                    "нинарадове и ларавел",
+                    active_modes=("it_mode",),
+                ),
+            )
+
+    def test_custom_terms_reload_and_ignore_invalid_lines(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            terms_path = root / "technical_terms.json"
+            custom_path = root / "custom_terms.txt"
+            custom_path.write_text("без разделителя\nредис = Redis\n", encoding="utf-8")
+            manager = TechnicalTermsManager(
+                get_terms_path=lambda: terms_path,
+                get_custom_terms_path=lambda: custom_path,
+                get_logger=build_logger,
+                normalize_name=normalize_name,
+                short_text=short_text,
+                default_payload_factory=lambda: {"enabled": True, "replacements": {}},
+            )
+
+            payload = manager.load()
+            self.assertEqual((1,), payload["invalid_custom_lines"])
+            self.assertEqual("Redis", manager.apply("редис"))
+
+            custom_path.write_text("редис = Redis DB\n", encoding="utf-8")
+            self.assertEqual("Redis DB", manager.apply("редис"))
+
 
 class TextUtilsTests(unittest.TestCase):
     def test_short_text_truncates_cleanly(self):

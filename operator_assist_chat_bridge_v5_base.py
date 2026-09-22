@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.4.2"
+WRAPPER_VERSION = "1.5.0"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -103,12 +103,14 @@ def rebind_environment():
 
     runtime.ensure_text_file(runtime.BRIDGE_SCRIPT_PATH, runtime.bridge_script_content())
     runtime.ensure_text_file(runtime.TECHNICAL_TERMS_PATH, runtime.default_technical_terms_content())
+    runtime.ensure_text_file(runtime.CUSTOM_TERMS_PATH, runtime.default_custom_terms_content())
     logger.info(
-        "Wrapper rebound environment. wrapper_version=%s base_source=%s model_candidates=%s technical_terms_path=%s loopback_available=%s loopback_error=%s",
+        "Wrapper rebound environment. wrapper_version=%s base_source=%s model_candidates=%s technical_terms_path=%s custom_terms_path=%s loopback_available=%s loopback_error=%s",
         WRAPPER_VERSION,
         _base_path,
         [str(path) for path in runtime.MODEL_CANDIDATES],
         runtime.TECHNICAL_TERMS_PATH,
+        runtime.CUSTOM_TERMS_PATH,
         LOOPBACK_AVAILABLE,
         LOOPBACK_IMPORT_ERROR,
     )

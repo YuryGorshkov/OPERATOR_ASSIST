@@ -189,10 +189,13 @@ The runtime now separates:
 That keeps the packaged app aligned with the existing product behavior:
 
 - `config/technical_terms.json` stays editable,
+- `config/custom_terms.txt` stays editable,
 - `config/chatgpt_prompt_template.txt` stays editable,
 - `data/models/` stays external,
 - `data/logs/` and `data/transcripts/` stay writable,
 - `support/` keeps build notes and helper scripts out of the app root.
+
+Installer upgrades preserve all three editable files in `config/`; packaged defaults are copied only when the corresponding file does not yet exist.
 
 ## First-Launch Expectations
 

@@ -31,6 +31,7 @@ The packaged app keeps user-editable and writable files out of the top-level app
 - `data/logs/` for runtime logs,
 - `data/transcripts/` for exported transcripts,
 - `config/technical_terms.json` for editable term replacements,
+- `config/custom_terms.txt` for simple user-defined corrections,
 - `config/chatgpt_prompt_template.txt` for the AI handoff template,
 - `support/` for helper materials and bridge scripts.
 
@@ -58,6 +59,8 @@ On first start, the app should guide the operator through readiness checks:
 - settings path available.
 
 Choose `Оба канала`, `Только собеседник`, or `Только оператор`. Use `Найти звук` while audio is playing to probe the available caller routes, then confirm the final routing before pressing `Старт`.
+
+For a repeatedly misrecognized name or term, click `Словарь` and add an exact correction such as `нинарадове = Ненарадове`. Save the file and start a new session. Empty lines and lines beginning with `#` are ignored; malformed rules are skipped and recorded in the log.
 
 ## If Windows Shows A Trust Warning
 

@@ -100,6 +100,7 @@ $requiredFiles = @(
     "operator_assist_runtime\base_runtime.py",
     "backups\operator_assist_chat_bridge_base.py",
     "technical_terms.json",
+    "custom_terms.txt",
     "scripts\Serve-App-Tcp.ps1",
     "scripts\Setup-From-Git.ps1",
     "Run-Operator-Assist.cmd",

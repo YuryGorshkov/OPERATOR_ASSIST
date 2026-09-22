@@ -241,6 +241,7 @@ Ensure-Directory -TargetPath (Join-Path $portableRoot "config")
 Ensure-Directory -TargetPath (Join-Path $portableRoot "support\scripts")
 
 Copy-ProjectFile -RelativeSource "technical_terms.json" -RelativeDestination "config\technical_terms.json"
+Copy-ProjectFile -RelativeSource "custom_terms.txt" -RelativeDestination "config\custom_terms.txt"
 Copy-ProjectFile -RelativeSource "chatgpt_prompt_template.txt" -RelativeDestination "config\chatgpt_prompt_template.txt"
 Copy-ProjectFile -RelativeSource "scripts\paste_to_chat_window.vbs" -RelativeDestination "support\scripts\paste_to_chat_window.vbs"
 
@@ -268,6 +269,7 @@ $quickStart = @(
     "",
     "Editable helper files:",
     "- .\config\technical_terms.json",
+    "- .\config\custom_terms.txt",
     "- .\config\chatgpt_prompt_template.txt"
 )
 Set-Content -LiteralPath (Join-Path $portableRoot "support\HOW_TO_START.txt") -Value $quickStart -Encoding UTF8

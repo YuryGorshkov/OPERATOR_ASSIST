@@ -156,6 +156,7 @@ Technical vocabulary is handled as a deterministic post-processing layer:
 - normalization of case and spacing,
 - global replacement dictionary,
 - optional mode-specific replacements,
+- user-defined exact replacements from `custom_terms.txt`,
 - IT-mode toggle persisted in settings.
 
 This is a practical design choice: for operator assistance, deterministic correction of common terms can be more valuable than chasing a heavier model.
@@ -166,6 +167,7 @@ Local runtime artifacts include:
 
 - `operator_assist_settings.json`
 - `technical_terms.json`
+- `custom_terms.txt`
 - `chatgpt_prompt_template.txt`
 - `assets/`
 - `logs/`

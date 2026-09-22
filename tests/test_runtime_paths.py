@@ -60,6 +60,7 @@ class RuntimePathTests(unittest.TestCase):
         self.assertEqual(install_root / "data" / "logs", layout["logs_dir"])
         self.assertEqual(install_root / "data" / "transcripts", layout["transcripts_dir"])
         self.assertEqual(install_root / "config" / "technical_terms.json", layout["technical_terms_path"])
+        self.assertEqual(install_root / "config" / "custom_terms.txt", layout["custom_terms_path"])
         self.assertEqual(install_root / "support" / "scripts" / "paste_to_chat_window.vbs", layout["bridge_script_path"])
 
 

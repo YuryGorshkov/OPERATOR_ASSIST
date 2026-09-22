@@ -6,6 +6,23 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.5.0 - 2026-09-22
+
+User vocabulary release.
+
+Highlights:
+
+- add a `Словарь` action for exact corrections of recurring names, companies, products and domain terms
+- keep user rules in the simple editable `config/custom_terms.txt` format: `recognized form = preferred form`
+- reload custom rules before every transcription session without restarting the application
+- give explicit user rules priority over built-in and optional IT-mode replacements
+- ignore malformed or oversized rules safely, cap the file at 500 active entries and report invalid line numbers in the log
+- package the editable vocabulary in both portable and installer layouts and document its use
+- reject decoder-level hotword bias after the local development comparison worsened WER from 5.38% to 17.69%; the decoder remains unchanged
+- reduce WER from 5.38% to 3.08% on the existing nine-clip development set with three explicit post-correction rules and no added inference cost
+
+The measured gain is specific to the small verified development sample. User rules are deterministic corrections for known recurring errors, not general model fine-tuning.
+
 ## v1.4.2 - 2026-09-22
 
 Responsive precise-transcription release.

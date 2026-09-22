@@ -58,5 +58,6 @@ def runtime_layout(base_dir, *, bundle_dir=None, frozen=None):
         "settings_path": config_dir / "operator_assist_settings.json",
         "prompt_template_path": config_dir / "chatgpt_prompt_template.txt",
         "technical_terms_path": config_dir / "technical_terms.json",
+        "custom_terms_path": config_dir / "custom_terms.txt",
         "bridge_script_path": support_dir / "scripts" / "paste_to_chat_window.vbs",
     }

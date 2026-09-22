@@ -129,6 +129,7 @@ OPERATOR_ASSIST/
 ├─ operator_assist_chat_window_test.py
 ├─ pyproject.toml
 ├─ requirements.txt
+├─ custom_terms.txt
 └─ technical_terms.json
 ```
 
@@ -145,6 +146,8 @@ OPERATOR_ASSIST/
 7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
 
 During longer Whisper utterances, the muted line below the transcript shows a fast provisional result. The main text remains the higher-accuracy final result and is the only text included in copy and TXT export actions.
+
+Use the `Словарь` button for names and domain terms the recognizer repeatedly writes incorrectly. Add one exact rule per line in the form `как распознано = как должно быть`; saved rules are reloaded on the next press of `Старт` and do not bias Whisper decoding.
 
 More detail: [docs/install-from-release.md](docs/install-from-release.md)
 
