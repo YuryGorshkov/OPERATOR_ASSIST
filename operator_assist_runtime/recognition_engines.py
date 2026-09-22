@@ -40,6 +40,7 @@ PRECISE_MODEL_REPOSITORIES = {
 }
 DEFAULT_NO_SPEECH_REJECT_THRESHOLD = 0.8
 MIN_FINAL_ALNUM_CHARS = 2
+_KNOWN_SUBTITLE_CREDIT_MARKERS = ("dimatorzok", "диматоржок")
 PRECISE_DEVICE_GPU = "gpu"
 PRECISE_DEVICE_CPU = "cpu"
 _CUDA_DLL_DIRECTORY_HANDLES = []
@@ -276,6 +277,35 @@ def filter_no_speech_segments(segments, threshold):
     return accepted, rejected
 
 
+def filter_known_metadata_hallucinations(segments):
+    """Reject only reproduced Whisper subtitle-credit hallucinations."""
+    segments = list(segments)
+
+    def is_known_credit(text):
+        key = "".join(character for character in text.casefold() if character.isalnum())
+        return key.startswith("субтитры") and any(
+            marker in key for marker in _KNOWN_SUBTITLE_CREDIT_MARKERS
+        )
+
+    accepted = []
+    rejected = []
+    for segment in segments:
+        text = str(getattr(segment, "text", "") or "")
+        if is_known_credit(text):
+            rejected.append(segment)
+        else:
+            accepted.append(segment)
+    if rejected:
+        return accepted, rejected
+
+    combined_text = " ".join(
+        str(getattr(segment, "text", "") or "") for segment in segments
+    )
+    if is_known_credit(combined_text):
+        return [], segments
+    return accepted, rejected
+
+
 def is_meaningful_final_text(text, *, min_alnum_chars=MIN_FINAL_ALNUM_CHARS):
     """Reject isolated decoder debris while preserving short replies such as 'да'."""
     return sum(character.isalnum() for character in (text or "")) >= min_alnum_chars
@@ -424,12 +454,17 @@ class FasterWhisperBufferedEngine:
         filter_no_speech_segments((), no_speech_reject_threshold)
         self._no_speech_reject_threshold = no_speech_reject_threshold
         self._rejected_no_speech_segments = 0
+        self._rejected_known_hallucinations = 0
         self._previous_text = ""
         self._logger = logging.getLogger("operator_assist")
 
     @property
     def rejected_no_speech_segments(self):
         return self._rejected_no_speech_segments
+
+    @property
+    def rejected_known_hallucinations(self):
+        return self._rejected_known_hallucinations
 
     def consume_chunk(self, chunk):
         if chunk:
@@ -486,6 +521,16 @@ class FasterWhisperBufferedEngine:
                 len(rejected_segments),
                 ",".join(f"{probability:.3f}" for _segment, probability in rejected_segments),
                 self._rejected_no_speech_segments,
+            )
+        segments, rejected_hallucinations = filter_known_metadata_hallucinations(
+            segments
+        )
+        if rejected_hallucinations:
+            self._rejected_known_hallucinations += len(rejected_hallucinations)
+            self._logger.info(
+                "Whisper known metadata hallucination suppressed. count=%s total=%s",
+                len(rejected_hallucinations),
+                self._rejected_known_hallucinations,
             )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = self._text_postprocessor(text.strip(), log_changes=True)

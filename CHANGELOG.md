@@ -4,7 +4,12 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
-No unreleased changes.
+Highlights:
+
+- reproduce the confident `Субтитры создавал DimaTorzok` Whisper hallucination on a publisher's music-only podcast intro
+- suppress only the reproduced `DimaTorzok` subtitle-credit signature in both provisional and final precise-mode output
+- preserve other subtitle-related phrases and the existing probability-based no-speech guard
+- validate the fix against the same three unchanged music intros: zero emitted words and zero dropped audio blocks
 
 ## v1.5.1 - 2026-09-22
 

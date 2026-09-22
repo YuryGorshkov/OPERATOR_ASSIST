@@ -206,6 +206,28 @@ class PauseAwareWhisperTests(unittest.TestCase):
         self.assertEqual(8, model.calls[1][1]["beam_size"])
         self.assertTrue(model.calls[1][1]["word_timestamps"])
 
+    def test_known_metadata_hallucination_is_suppressed_in_preview_and_final(self):
+        phrase = "Субтитры создавал DimaTorzok"
+        model = Model(
+            [SimpleNamespace(text=phrase, words=None, no_speech_prob=0.01)],
+            [
+                segment(
+                    0.01,
+                    (" Субтитры", 0.1, 0.2),
+                    (" создавал", 0.2, 0.3),
+                    (" DimaTorzok", 0.3, 0.5),
+                )
+            ],
+        )
+        candidate = engine(model, preview_enabled=True)
+
+        preview = candidate.consume_chunk(pcm(2.5))
+        final = candidate.consume_chunk(pcm(2.1))
+
+        self.assertEqual([], preview)
+        self.assertEqual([], final)
+        self.assertEqual(2, candidate.rejected_known_hallucinations)
+
     def test_single_character_tail_is_suppressed_but_yes_is_preserved(self):
         debris = engine(Model([segment(0.1, (" у", 0.1, 0.2))]))
         debris.consume_chunk(pcm(0.5))

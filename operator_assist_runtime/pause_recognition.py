@@ -10,6 +10,7 @@ import numpy as np
 from operator_assist_runtime.recognition_engines import (
     DEFAULT_NO_SPEECH_REJECT_THRESHOLD,
     RecognitionUpdate,
+    filter_known_metadata_hallucinations,
     filter_no_speech_segments,
     is_meaningful_final_text,
 )
@@ -183,6 +184,7 @@ class PauseAwareWhisperEngine:
         self.deferred_words = []
         self.peak_buffer_seconds = 0.0
         self.rejected_no_speech_segments = 0
+        self.rejected_known_hallucinations = 0
         self.preview_emitted_for_owner = False
         self.preview_visible = False
 
@@ -320,6 +322,9 @@ class PauseAwareWhisperEngine:
         segments, rejected = filter_no_speech_segments(
             list(segments), self.config.no_speech_reject_threshold
         )
+        segments, rejected_hallucinations = self._reject_known_hallucinations(
+            segments
+        )
         raw_text = " ".join(
             str(getattr(segment, "text", "") or "").strip()
             for segment in segments
@@ -334,12 +339,13 @@ class PauseAwareWhisperEngine:
         elapsed = time.perf_counter() - started_at
         audio_seconds = len(audio) / float(sample_rate)
         self._logger.info(
-            "Whisper preview processed. audio=%.2fs inference=%.2fs rtf=%.2f chars=%s rejected=%s",
+            "Whisper preview processed. audio=%.2fs inference=%.2fs rtf=%.2f chars=%s rejected=%s hallucinations=%s",
             audio_seconds,
             elapsed,
             elapsed / audio_seconds if audio_seconds else 0.0,
             len(text),
             len(rejected),
+            len(rejected_hallucinations),
         )
         if text or was_visible:
             return [
@@ -351,6 +357,17 @@ class PauseAwareWhisperEngine:
                 )
             ]
         return []
+
+    def _reject_known_hallucinations(self, segments):
+        accepted, rejected = filter_known_metadata_hallucinations(segments)
+        if rejected:
+            self.rejected_known_hallucinations += len(rejected)
+            self._logger.info(
+                "Whisper known metadata hallucination suppressed. count=%s total=%s",
+                len(rejected),
+                self.rejected_known_hallucinations,
+            )
+        return accepted, rejected
 
     def _trim(self, start):
         remove_samples = max(0, start - self.buffer_start)
@@ -403,9 +420,6 @@ class PauseAwareWhisperEngine:
             vad_parameters={"min_silence_duration_ms": self.config.vad_silence_ms},
         )
         segments = list(segments)
-        decoder_had_text = any(
-            str(getattr(segment, "text", "") or "").strip() for segment in segments
-        )
         segments, rejected = filter_no_speech_segments(
             segments, self.config.no_speech_reject_threshold
         )
@@ -417,6 +431,12 @@ class PauseAwareWhisperEngine:
                 ",".join(f"{probability:.3f}" for _segment, probability in rejected),
                 self.rejected_no_speech_segments,
             )
+        segments, _rejected_hallucinations = self._reject_known_hallucinations(
+            segments
+        )
+        decoder_had_text = any(
+            str(getattr(segment, "text", "") or "").strip() for segment in segments
+        )
 
         deferred = []
         window_start_seconds = self.buffer_start / float(sample_rate)

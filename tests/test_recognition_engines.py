@@ -316,6 +316,47 @@ class RecognitionEnginePlanTests(unittest.TestCase):
         self.assertEqual("Субтитры сделал кто-то", updates[0].text)
         self.assertEqual(0, engine.rejected_no_speech_segments)
 
+    def test_precise_buffer_suppresses_reproduced_metadata_hallucination(self):
+        engine = self._make_precise_engine(
+            (
+                SimpleNamespace(
+                    text="Субтитры создавал DimaTorzok",
+                    no_speech_prob=0.01,
+                ),
+            )
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual([], updates)
+        self.assertEqual(1, engine.rejected_known_hallucinations)
+
+    def test_metadata_hallucination_filter_preserves_other_subtitle_phrases(self):
+        segments = (
+            SimpleNamespace(text="Субтитры создавал DimaTorzok"),
+            SimpleNamespace(text="Субтитры создавал Дмитрий"),
+        )
+
+        accepted, rejected = recognition_engines.filter_known_metadata_hallucinations(
+            segments
+        )
+
+        self.assertEqual([segments[1]], accepted)
+        self.assertEqual([segments[0]], rejected)
+
+    def test_metadata_hallucination_filter_handles_split_decoder_segments(self):
+        segments = (
+            SimpleNamespace(text="Субтитры создавал"),
+            SimpleNamespace(text="DimaTorzok"),
+        )
+
+        accepted, rejected = recognition_engines.filter_known_metadata_hallucinations(
+            segments
+        )
+
+        self.assertEqual([], accepted)
+        self.assertEqual(list(segments), rejected)
+
     def test_precise_buffer_keeps_real_segment_from_mixed_decode(self):
         engine = self._make_precise_engine(
             (
