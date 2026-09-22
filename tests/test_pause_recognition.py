@@ -112,6 +112,7 @@ class PauseAwareWhisperTests(unittest.TestCase):
         self.assertEqual(600, config.pause_ms)
         self.assertEqual(8, config.beam_size)
         self.assertEqual(5, config.best_of)
+        self.assertEqual(0.35, config.pause_decode_tail_seconds)
 
     def test_silence_never_starts_decoder_and_memory_stays_bounded(self):
         model = Model()
@@ -135,6 +136,7 @@ class PauseAwareWhisperTests(unittest.TestCase):
         self.assertEqual(5, model.calls[0][1]["best_of"])
         self.assertTrue(model.calls[0][1]["word_timestamps"])
         self.assertFalse(model.calls[0][1]["condition_on_previous_text"])
+        self.assertAlmostEqual(0.85, len(model.calls[0][0]) / 16000, places=6)
 
     def test_decoder_search_rejects_invalid_types_and_ranges(self):
         bundle = PreciseEngineBundle(Model(), "fixture", "cpu", "int8", Path("."))
@@ -147,6 +149,18 @@ class PauseAwareWhisperTests(unittest.TestCase):
                         detector=Detector(),
                         text_postprocessor=lambda text, **_kwargs: text,
                         config=PauseAwareWhisperConfig(beam_size=value),
+                    )
+
+        for value in (-0.1, 1.1):
+            with self.subTest(pause_decode_tail_seconds=value):
+                with self.assertRaisesRegex(ValueError, "pause decode tail"):
+                    PauseAwareWhisperEngine(
+                        bundle,
+                        detector=Detector(),
+                        text_postprocessor=lambda text, **_kwargs: text,
+                        config=PauseAwareWhisperConfig(
+                            pause_decode_tail_seconds=value
+                        ),
                     )
 
     def test_guard_rejects_non_speech_without_matching_its_words(self):
@@ -167,6 +181,7 @@ class PauseAwareWhisperTests(unittest.TestCase):
         self.assertEqual(["first phrase"], [update.text for update in updates])
         self.assertLessEqual(candidate.peak_buffer_seconds, 5.0)
         self.assertAlmostEqual(4.6, len(model.calls[0][0]) / 16000, places=6)
+        self.assertAlmostEqual(3.75, updates[0].audio_tail_seconds, places=6)
 
     def test_preview_is_fast_non_committing_and_cleared_by_final(self):
         model = Model(

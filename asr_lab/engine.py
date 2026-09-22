@@ -87,6 +87,7 @@ def make_engine(bundle, profile, *, text_postprocessor, hotwords=""):
             beam_size=profile.pause_beam_size,
             best_of=profile.pause_best_of,
             preview_enabled=profile.pause_preview_enabled,
+            pause_decode_tail_seconds=profile.pause_decode_tail_seconds,
         )
         engine = PauseAwareWhisperEngine(
             observed_bundle,

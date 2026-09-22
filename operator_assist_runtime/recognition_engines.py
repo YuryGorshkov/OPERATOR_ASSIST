@@ -119,6 +119,9 @@ def prepare_cuda_runtime(*, logger=None):
 class RecognitionUpdate:
     kind: str
     text: str
+    inference_seconds: float | None = None
+    audio_tail_seconds: float = 0.0
+    trigger_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -500,5 +503,12 @@ class FasterWhisperBufferedEngine:
         )
         if text:
             self._previous_text = text[-self._context_chars :] if self._context_chars else ""
-            return [RecognitionUpdate("final", text)]
+            return [
+                RecognitionUpdate(
+                    "final",
+                    text,
+                    inference_seconds=elapsed,
+                    trigger_reason="buffer",
+                )
+            ]
         return []

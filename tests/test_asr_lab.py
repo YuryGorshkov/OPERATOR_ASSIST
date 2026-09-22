@@ -11,9 +11,11 @@ import numpy as np
 
 from asr_lab.corpus import corpus_summary, load_manifest, read_pcm
 from asr_lab.engine import ObservedModel, make_engine
+from asr_lab.error_analysis import align_words, collect_error_candidates
 from asr_lab.metrics import aggregate, edit_counts, score_terms, score_text, tokens
 from asr_lab.preparation import convert_audio, export_training_pairs
 from asr_lab.profiles import PROFILES
+from asr_lab.realtime import replay_sample_realtime, summarize_realtime_results
 from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
 from operator_assist_runtime.recognition_engines import FasterWhisperBufferedEngine, PreciseEngineBundle
 
@@ -101,6 +103,39 @@ class MetricsTests(unittest.TestCase):
                         table[i][j] = min(table[i - 1][j] + 1, table[i][j - 1] + 1,
                                           table[i - 1][j - 1] + (reference[i - 1] != hypothesis[j - 1]))
                 self.assertEqual(table[-1][-1], edit_counts(reference, hypothesis).errors)
+
+    def test_error_candidates_require_review_even_when_repeated_across_voices(self):
+        results = [
+            {
+                "id": "one",
+                "speaker_id": "voice-a",
+                "reference": "деревня Ненарадово",
+                "hypothesis": "деревня Нинарадово",
+            },
+            {
+                "id": "two",
+                "speaker_id": "voice-b",
+                "reference": "в Ненарадово",
+                "hypothesis": "в Нинарадово",
+            },
+        ]
+
+        candidate = collect_error_candidates(results)[0]
+
+        self.assertEqual("substitution", candidate["operation"])
+        self.assertEqual(2, candidate["occurrences"])
+        self.assertEqual("high", candidate["review_priority"])
+        self.assertFalse(candidate["auto_apply"])
+        self.assertEqual(
+            {"from": "нинарадово", "to": "ненарадово"},
+            candidate["candidate_replacement"],
+        )
+
+    def test_word_alignment_exposes_insertions_and_deletions(self):
+        insertions = align_words("один", "лишнее один")
+        deletions = align_words("один два", "один")
+        self.assertIn(("insertion", "", "лишнее"), insertions)
+        self.assertIn(("deletion", "два", ""), deletions)
 
 
 class CorpusTests(unittest.TestCase):
@@ -409,6 +444,38 @@ class BenchmarkTests(unittest.TestCase):
         from asr_lab.benchmark import make_postprocessor
         with self.assertRaisesRegex(ValueError, "it_mode"):
             make_postprocessor(self.terms, True)
+
+    def test_realtime_replay_uses_independent_audio_and_ui_queues(self):
+        result = replay_sample_realtime(
+            bundle(FakeModel("correct words")),
+            PROFILES["baseline"],
+            self.samples[0],
+            postprocessor=lambda text, **_: text,
+            trailing_silence_seconds=0,
+            pace=False,
+        )
+
+        self.assertEqual("correct words", result["hypothesis"])
+        self.assertEqual(0, result["scores"]["wer"]["errors"])
+        self.assertEqual(0, result["queue_drops"])
+        self.assertEqual(1, result["final_updates"])
+        self.assertIn("latency", result["events"][-1])
+
+    def test_realtime_summary_keeps_per_speaker_accuracy_and_latency(self):
+        result = replay_sample_realtime(
+            bundle(FakeModel("correct words")),
+            PROFILES["baseline"],
+            self.samples[0],
+            postprocessor=lambda text, **_: text,
+            trailing_silence_seconds=0,
+            pace=False,
+        )
+
+        summary = summarize_realtime_results([result])
+
+        self.assertEqual(0, summary["wer"]["errors"])
+        self.assertEqual("actor01", summary["speakers"][0]["speaker_id"])
+        self.assertEqual(1, summary["final_event_latency"]["count"])
 
 
 if __name__ == "__main__":

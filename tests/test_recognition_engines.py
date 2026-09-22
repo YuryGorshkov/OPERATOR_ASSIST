@@ -233,6 +233,8 @@ class RecognitionEnginePlanTests(unittest.TestCase):
 
         self.assertEqual("Первая длинная фраза.", first_updates[0].text)
         self.assertEqual("Вторая фраза.", second_updates[0].text)
+        self.assertIsNotNone(first_updates[0].inference_seconds)
+        self.assertEqual("buffer", first_updates[0].trigger_reason)
         self.assertIsNone(transcribe_calls[0]["initial_prompt"])
         self.assertEqual("Первая длинная фраза.", transcribe_calls[1]["initial_prompt"])
         self.assertTrue(transcribe_calls[0]["condition_on_previous_text"])
@@ -243,6 +245,35 @@ class RecognitionEnginePlanTests(unittest.TestCase):
         updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
 
         self.assertEqual([], updates)
+
+    def test_vosk_finalize_keeps_optional_latency_metadata_empty(self):
+        original_recognizer = recognition_engines.KaldiRecognizer
+
+        class FakeRecognizer:
+            def __init__(self, _model, _sample_rate):
+                pass
+
+            def SetWords(self, _enabled):
+                pass
+
+            def FinalResult(self):
+                return '{"text": "готово"}'
+
+        try:
+            recognition_engines.KaldiRecognizer = FakeRecognizer
+            engine = recognition_engines.VoskRecognitionEngine(
+                object(),
+                16000,
+                text_postprocessor=lambda text, **_kwargs: text,
+            )
+
+            update = engine.finalize()[0]
+
+            self.assertEqual("готово", update.text)
+            self.assertIsNone(update.inference_seconds)
+            self.assertEqual("", update.trigger_reason)
+        finally:
+            recognition_engines.KaldiRecognizer = original_recognizer
 
     def test_precise_buffer_preserves_short_meaningful_reply(self):
         engine = self._make_precise_engine((SimpleNamespace(text="да"),))

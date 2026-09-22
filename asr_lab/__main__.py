@@ -35,6 +35,22 @@ def parser():
     evaluate.add_argument("--terms-file", type=Path, default=Path(__file__).resolve().parents[1] / "technical_terms.json")
     evaluate.add_argument("--it-mode", action="store_true")
     evaluate.add_argument("--hotwords-file", type=Path)
+    realtime = commands.add_parser(
+        "realtime",
+        help="Measure paced end-to-end recognition latency and accuracy.",
+    )
+    realtime.add_argument("manifest", type=Path)
+    realtime.add_argument("--model", type=Path, required=True, help="Existing local CTranslate2 model directory.")
+    realtime.add_argument("--output", type=Path, required=True, help="New report directory; never overwritten.")
+    realtime.add_argument("--device", choices=("gpu", "cpu"), default="gpu")
+    realtime.add_argument("--profile", choices=tuple(PROFILES), default="production_pause")
+    realtime.add_argument("--split", choices=("dev", "test"), default="dev")
+    realtime.add_argument("--allow-test", action="store_true")
+    realtime.add_argument("--chunk-ms", type=int, default=250)
+    realtime.add_argument("--ui-poll-ms", type=int, default=120)
+    realtime.add_argument("--trailing-silence-seconds", type=float, default=1.25)
+    realtime.add_argument("--terms-file", type=Path, default=Path(__file__).resolve().parents[1] / "technical_terms.json")
+    realtime.add_argument("--it-mode", action="store_true")
     return result
 
 
@@ -61,6 +77,25 @@ def main(argv=None):
                                device=args.device, terms_path=args.terms_file, it_mode=args.it_mode,
                                hotwords=hotwords, output_dir=args.output, split=args.split,
                                allow_test=args.allow_test, chunk_ms=args.chunk_ms)
+            print(f"Report: {args.output.resolve()}")
+            return 0 if success else 1
+        elif args.command == "realtime":
+            from .realtime import evaluate_realtime
+            success = evaluate_realtime(
+                load_manifest(args.manifest),
+                manifest_path=args.manifest,
+                profile=PROFILES[args.profile],
+                model_dir=args.model,
+                device=args.device,
+                terms_path=args.terms_file,
+                it_mode=args.it_mode,
+                output_dir=args.output,
+                split=args.split,
+                allow_test=args.allow_test,
+                chunk_ms=args.chunk_ms,
+                ui_poll_ms=args.ui_poll_ms,
+                trailing_silence_seconds=args.trailing_silence_seconds,
+            )
             print(f"Report: {args.output.resolve()}")
             return 0 if success else 1
         return 0

@@ -40,6 +40,7 @@ class PauseAwareWhisperConfig:
     preview_enabled: bool = True
     preview_after_seconds: float = 2.5
     preview_beam_size: int = 1
+    pause_decode_tail_seconds: float = 0.35
 
 
 def _word_key(value):
@@ -210,6 +211,8 @@ class PauseAwareWhisperEngine:
             raise ValueError("Invalid preview mode flag.")
         if not 0.5 <= config.preview_after_seconds <= config.initial_flush_seconds:
             raise ValueError("Invalid preview start duration.")
+        if not 0 <= config.pause_decode_tail_seconds <= config.short_pause_ms / 1000.0:
+            raise ValueError("Invalid pause decode tail duration.")
         if (
             isinstance(config.preview_beam_size, bool)
             or not isinstance(config.preview_beam_size, int)
@@ -339,7 +342,14 @@ class PauseAwareWhisperEngine:
             len(rejected),
         )
         if text or was_visible:
-            return [RecognitionUpdate("partial", text)]
+            return [
+                RecognitionUpdate(
+                    "partial",
+                    text,
+                    inference_seconds=elapsed,
+                    trigger_reason="preview",
+                )
+            ]
         return []
 
     def _trim(self, start):
@@ -349,6 +359,7 @@ class PauseAwareWhisperEngine:
 
     def _emit(self, boundary, reason):
         sample_rate = self.config.sample_rate
+        pause_quiet_seconds = None
         if reason == "cap":
             decode_end = min(
                 self.received,
@@ -356,6 +367,26 @@ class PauseAwareWhisperEngine:
             )
         else:
             decode_end = self.received
+        if reason == "pause":
+            full_audio = bytes(self.buffer[: (boundary - self.buffer_start) * 2])
+            _, pause_quiet_seconds = self.detector.inspect(
+                full_audio, self.buffer_start, boundary
+            )
+            max_quiet = (boundary - self.buffer_start) / float(sample_rate)
+            if (
+                not math.isfinite(pause_quiet_seconds)
+                or not 0 <= pause_quiet_seconds <= max_quiet
+            ):
+                raise ValueError("Invalid measured pause duration.")
+            silence_start = boundary - math.floor(pause_quiet_seconds * sample_rate)
+            decode_end = max(
+                self.buffer_start,
+                min(
+                    decode_end,
+                    silence_start
+                    + round(self.config.pause_decode_tail_seconds * sample_rate),
+                ),
+            )
         audio_bytes = bytes(self.buffer[: (decode_end - self.buffer_start) * 2])
         audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
         started_at = time.perf_counter()
@@ -414,10 +445,7 @@ class PauseAwareWhisperEngine:
             boundary - round(self.config.overlap_seconds * sample_rate),
         )
         if reason == "pause":
-            _, quiet = self.detector.inspect(audio_bytes, self.buffer_start, boundary)
-            max_quiet = (decode_end - self.buffer_start) / float(sample_rate)
-            if not math.isfinite(quiet) or not 0 <= quiet <= max_quiet:
-                raise ValueError("Invalid measured pause duration.")
+            quiet = pause_quiet_seconds
             last_word = words[-1] if words else self.last_word
             if (
                 quiet * 1000 >= self.config.pause_ms
@@ -438,14 +466,20 @@ class PauseAwareWhisperEngine:
         tail_has_speech, _quiet = self.detector.inspect(tail, next_start, boundary)
         elapsed = time.perf_counter() - started_at
         audio_seconds = len(audio) / float(sample_rate)
+        trimmed_silence_seconds = (
+            max(0.0, (self.received - decode_end) / float(sample_rate))
+            if reason == "pause"
+            else 0.0
+        )
         self._logger.info(
-            "Whisper pause-aware segment processed. reason=%s audio=%.2fs inference=%.2fs rtf=%.2f words=%s chars=%s",
+            "Whisper pause-aware segment processed. reason=%s audio=%.2fs inference=%.2fs rtf=%.2f words=%s chars=%s trimmed_silence=%.2fs",
             reason,
             audio_seconds,
             elapsed,
             elapsed / audio_seconds if audio_seconds else 0.0,
             len(words),
             len(text),
+            trimmed_silence_seconds,
         )
 
         if words:
@@ -462,7 +496,21 @@ class PauseAwareWhisperEngine:
             updates.append(RecognitionUpdate("partial", ""))
             self.preview_visible = False
         if text:
-            updates.append(RecognitionUpdate("final", text))
+            audio_tail_seconds = 0.0
+            if words:
+                trigger_audio_end_seconds = self.received / float(sample_rate)
+                audio_tail_seconds = max(
+                    0.0, trigger_audio_end_seconds - words[-1].end
+                )
+            updates.append(
+                RecognitionUpdate(
+                    "final",
+                    text,
+                    inference_seconds=elapsed,
+                    audio_tail_seconds=audio_tail_seconds,
+                    trigger_reason=reason,
+                )
+            )
         return updates
 
     def finalize(self):

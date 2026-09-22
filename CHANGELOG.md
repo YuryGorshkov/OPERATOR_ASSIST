@@ -6,6 +6,23 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.5.1 - 2026-09-22
+
+Real-time recognition diagnostics and silence-boundary release.
+
+Highlights:
+
+- add monotonic end-to-end latency telemetry for audio queueing, recognition, UI dispatch and estimated speech-end delivery
+- add a reproducible wall-clock ASR replay that uses independent audio, recognition and UI queues with the desktop application's production timing
+- report WER/CER per speaker, queue drops, queue depth, p50/p95 latency and review-only recurring error candidates
+- trim confirmed trailing silence before pause-triggered Whisper decoding while retaining a 350 ms VAD guard
+- remove the recurring `DimaTorzok` subtitle-credit hallucination from the affected live-style development case without phrase-specific filtering
+- reduce live-style WER from 11.54% to 7.69% and CER from 7.29% to 2.59% on nine verified clips from three readers
+- measure complete-text latency at 2.02 seconds p50 and 2.30 seconds p95 on the tested GPU, with zero dropped audio blocks
+- preserve the existing 5.38% WER and 1.88% CER in the isolated offline regression control
+
+These measurements use a small single-book development corpus and describe the tested machine. Error candidates are never applied automatically and still require human review.
+
 ## v1.5.0 - 2026-09-22
 
 User vocabulary release.

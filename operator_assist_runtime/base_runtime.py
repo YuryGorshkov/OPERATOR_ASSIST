@@ -22,6 +22,10 @@ import sounddevice as sd
 from vosk import Model
 
 from operator_assist_runtime.audio_processing import SpeechAudioPreprocessor
+from operator_assist_runtime.latency_metrics import (
+    RecognitionLatencyTracker,
+    calculate_recognition_latency,
+)
 from operator_assist_runtime.technical_terms import (
     TechnicalTermsManager,
     serialize_terms_payload,
@@ -60,7 +64,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -531,6 +535,7 @@ class TranscriptionWorker:
         self.suppressed_chunk_count = 0
         self.gap_marker_queued = False
         self.last_level_percent = 0
+        self.last_audio_captured_at = None
 
     def start(self):
         LOGGER.info("[%s] Starting worker for device_id=%s", self.label, self.device_id)
@@ -624,16 +629,17 @@ class TranscriptionWorker:
             text_postprocessor=apply_technical_term_replacements,
         )
 
-    def _queue_gap_marker(self):
+    def _queue_gap_marker(self, captured_at):
         if self.gap_marker_queued:
             return
         try:
-            self.audio_queue.put_nowait(None)
+            self.audio_queue.put_nowait((None, captured_at))
             self.gap_marker_queued = True
         except queue.Full:
             pass
 
     def _audio_callback(self, indata, frames, callback_time, status):
+        captured_at = time.monotonic()
         if status:
             self.callback_warning_count += 1
             LOGGER.warning("[%s] Audio callback status=%s", self.label, status)
@@ -651,17 +657,21 @@ class TranscriptionWorker:
                 self.rate_state,
             )
 
+        self._enqueue_captured_chunk(chunk, captured_at)
+
+    def _enqueue_captured_chunk(self, chunk, captured_at):
+        self.last_audio_captured_at = captured_at
         if not self.stop_event.is_set() and chunk:
             self.chunk_count += 1
             self._emit_level(chunk)
             chunk = self._process_chunk_for_recognition(chunk)
             if not chunk:
                 self.suppressed_chunk_count += 1
-                self._queue_gap_marker()
+                self._queue_gap_marker(captured_at)
                 return
             self.gap_marker_queued = False
             try:
-                self.audio_queue.put_nowait(chunk)
+                self.audio_queue.put_nowait((chunk, captured_at))
             except queue.Full:
                 self.drop_count += 1
 
@@ -671,7 +681,7 @@ class TranscriptionWorker:
                     pass
 
                 try:
-                    self.audio_queue.put_nowait(chunk)
+                    self.audio_queue.put_nowait((chunk, captured_at))
                 except queue.Full:
                     pass
 
@@ -691,33 +701,72 @@ class TranscriptionWorker:
 
             while not self.stop_event.is_set():
                 try:
-                    chunk = self.audio_queue.get(timeout=0.25)
+                    chunk, captured_at = self.audio_queue.get(timeout=0.25)
                 except queue.Empty:
                     continue
 
+                dequeued_at = time.monotonic()
                 if chunk is None:
                     updates = engine.consume_gap() if hasattr(engine, "consume_gap") else []
                 else:
                     updates = engine.consume_chunk(chunk)
+                recognized_at = time.monotonic()
 
                 for update in updates:
-                    self._publish_recognition_update(update)
+                    self._publish_recognition_update(
+                        update,
+                        captured_at=captured_at,
+                        dequeued_at=dequeued_at,
+                        recognized_at=recognized_at,
+                        queue_depth=self.audio_queue.qsize(),
+                    )
 
-            for update in engine.finalize():
-                self._publish_recognition_update(update, tail=True)
+            dequeued_at = time.monotonic()
+            updates = engine.finalize()
+            recognized_at = time.monotonic()
+            captured_at = self.last_audio_captured_at or dequeued_at
+            for update in updates:
+                self._publish_recognition_update(
+                    update,
+                    tail=True,
+                    captured_at=captured_at,
+                    dequeued_at=dequeued_at,
+                    recognized_at=recognized_at,
+                    queue_depth=self.audio_queue.qsize(),
+                )
         except Exception:
             LOGGER.exception("[%s] Recognizer thread crashed", self.label)
             self.ui_queue.put(("hint", f"{self.label}: ошибка распознавания, детали в логе"))
         finally:
             LOGGER.info("[%s] Recognizer thread finished", self.label)
 
-    def _publish_recognition_update(self, update, *, tail=False):
+    def _publish_recognition_update(
+        self,
+        update,
+        *,
+        tail=False,
+        captured_at=None,
+        dequeued_at=None,
+        recognized_at=None,
+        queue_depth=0,
+    ):
+        telemetry = {
+            "captured_at": captured_at,
+            "dequeued_at": dequeued_at,
+            "recognized_at": recognized_at,
+            "inference_seconds": getattr(update, "inference_seconds", None),
+            "audio_tail_seconds": getattr(update, "audio_tail_seconds", 0.0),
+            "trigger_reason": getattr(update, "trigger_reason", ""),
+            "queue_depth": queue_depth,
+        }
         if update.kind == "final":
             label = "Final tail text" if tail else "Final text"
             LOGGER.info("[%s] %s: %s", self.label, label, short_text(update.text, 400))
-            self.ui_queue.put(("final", self.label, update.text, time.monotonic()))
+            self.ui_queue.put(
+                ("final", self.label, update.text, recognized_at or time.monotonic(), telemetry)
+            )
         else:
-            self.ui_queue.put(("partial", self.label, update.text))
+            self.ui_queue.put(("partial", self.label, update.text, telemetry))
 
 
 class OperatorAssistApp:
@@ -793,6 +842,7 @@ class OperatorAssistApp:
         self.precise_engine_loading_device_preference = None
         self.pending_precise_start = False
         self.active_route_info = {}
+        self.recognition_latency = RecognitionLatencyTracker()
         self.source_probe_running = False
         self._brand_logo_image = None
         self._brand_icon_images = []
@@ -1970,6 +2020,7 @@ class OperatorAssistApp:
         )
 
         self.stop_transcription()
+        self.recognition_latency.clear()
 
         try:
             if mic_enabled:
@@ -2045,6 +2096,52 @@ class OperatorAssistApp:
     def _append_text(self, widget, text):
         widget.insert("end", text)
         widget.see("end")
+
+    def _record_recognition_latency(self, label, kind, text, telemetry):
+        if not text or not telemetry:
+            return
+        required = ("captured_at", "dequeued_at", "recognized_at")
+        if any(telemetry.get(name) is None for name in required):
+            return
+        try:
+            sample = calculate_recognition_latency(
+                captured_at=telemetry["captured_at"],
+                dequeued_at=telemetry["dequeued_at"],
+                recognized_at=telemetry["recognized_at"],
+                displayed_at=time.monotonic(),
+                inference_seconds=telemetry.get("inference_seconds"),
+                audio_tail_seconds=telemetry.get("audio_tail_seconds", 0.0),
+            )
+        except (TypeError, ValueError):
+            LOGGER.exception("Invalid recognition latency telemetry. label=%s kind=%s", label, kind)
+            return
+
+        summary = self.recognition_latency.record(label, kind, sample)
+        LOGGER.info(
+            "Recognition latency. label=%s kind=%s reason=%s queue=%.3fs processing=%.3fs inference=%s ui=%.3fs trigger_to_ui=%.3fs speech_end_to_ui=%.3fs queue_depth=%s chars=%s",
+            label,
+            kind,
+            telemetry.get("trigger_reason") or "unknown",
+            sample.queue_seconds,
+            sample.processing_seconds,
+            f"{sample.inference_seconds:.3f}s" if sample.inference_seconds is not None else "n/a",
+            sample.ui_dispatch_seconds,
+            sample.trigger_to_ui_seconds,
+            sample.speech_end_to_ui_seconds,
+            telemetry.get("queue_depth", 0),
+            len(text),
+        )
+        if kind == "final":
+            LOGGER.info(
+                "Recognition latency summary. label=%s kind=%s count=%s mean=%.3fs p50=%.3fs p95=%.3fs max=%.3fs",
+                label,
+                kind,
+                summary["count"],
+                summary["mean_seconds"],
+                summary["p50_seconds"],
+                summary["p95_seconds"],
+                summary["max_seconds"],
+            )
 
     def _remember_speaker_final(self, text, event_time):
         cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
@@ -2122,7 +2219,8 @@ class OperatorAssistApp:
                 kind = message[0]
 
                 if kind == "final":
-                    _, label, text, event_time = message
+                    _, label, text, event_time, *details = message
+                    telemetry = details[0] if details else None
                     if label == "speaker":
                         pending_match = self._discard_pending_mic_overlap(text, event_time)
                         relation, _matched_text = self._find_recent_overlap(
@@ -2134,6 +2232,7 @@ class OperatorAssistApp:
                             self._register_channel_overlap(label, "me", text, relation)
                         self._remember_speaker_final(text, event_time)
                         self._append_text(self.speaker_text, text + " ")
+                        self._record_recognition_latency(label, kind, text, telemetry)
                     else:
                         relation, matched_text = self._find_recent_overlap(
                             text, event_time, self.recent_speaker_finals
@@ -2149,11 +2248,13 @@ class OperatorAssistApp:
                         else:
                             self._queue_pending_mic_final(text, event_time)
                 elif kind == "partial":
-                    _, label, text = message
+                    _, label, text, *details = message
+                    telemetry = details[0] if details else None
                     if label == "me":
                         self.my_partial_var.set(text or "Пока пусто")
                     else:
                         self.speaker_partial_var.set(text or "Пока пусто")
+                    self._record_recognition_latency(label, kind, text, telemetry)
                 elif kind == "level":
                     _, label, level_percent, *details = message
                     clipping_percent = details[0] if details else 0.0

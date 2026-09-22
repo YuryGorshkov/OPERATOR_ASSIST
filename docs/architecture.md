@@ -174,6 +174,8 @@ Local runtime artifacts include:
 - `transcripts/`
 - `models/`
 
+Recognition latency is recorded without changing decoder behavior. Runtime logs split each visible speaker update into audio-queue wait, recognition processing, UI dispatch and an estimated speech-end-to-UI delay; final results also report rolling p50, p95 and maximum values for the active session.
+
 Only the source-level defaults belong in git. User-specific outputs and large models do not.
 
 ## Key Trade-Offs

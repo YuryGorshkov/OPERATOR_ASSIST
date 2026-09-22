@@ -24,6 +24,7 @@ class Profile:
     pause_beam_size: int = 8
     pause_best_of: int = 5
     pause_preview_enabled: bool = True
+    pause_decode_tail_seconds: float = 0.35
 
 
 PROFILES = {

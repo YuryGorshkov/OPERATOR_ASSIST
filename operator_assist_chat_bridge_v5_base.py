@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.5.0"
+WRAPPER_VERSION = "1.5.1"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -198,6 +198,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
 
     def _enqueue_chunk(self, chunk):
         runtime = _base_mod._base
+        captured_at = runtime.time.monotonic()
 
         if self.input_samplerate != runtime.TARGET_SAMPLE_RATE:
             chunk, self.rate_state = runtime.audioop.ratecv(
@@ -209,37 +210,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
                 self.rate_state,
             )
 
-        if not self.stop_event.is_set() and chunk:
-            self.chunk_count += 1
-            self._emit_level(chunk)
-            chunk = self._process_chunk_for_recognition(chunk)
-            if not chunk:
-                self.suppressed_chunk_count += 1
-                self._queue_gap_marker()
-                return
-            self.gap_marker_queued = False
-            try:
-                self.audio_queue.put_nowait(chunk)
-            except runtime.queue.Full:
-                self.drop_count += 1
-
-                try:
-                    self.audio_queue.get_nowait()
-                except runtime.queue.Empty:
-                    pass
-
-                try:
-                    self.audio_queue.put_nowait(chunk)
-                except runtime.queue.Full:
-                    pass
-
-                if self.drop_count <= 3 or self.drop_count % 10 == 0:
-                    runtime.LOGGER.warning(
-                        "[%s] Audio queue overflow. drops=%s queue_size=%s",
-                        self.label,
-                        self.drop_count,
-                        self.audio_queue.qsize(),
-                    )
+        self._enqueue_captured_chunk(chunk, captured_at)
 
     def _frames_to_pcm(self, frames):
         if frames is None:

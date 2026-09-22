@@ -122,6 +122,26 @@ rates. Normalization uses NFKC, case folding, Russian yo/e equivalence and
 punctuation tokenization; C++ and C# remain distinct. CER includes spaces.
 No phonetic replacement is applied to reference text to hide acronym errors.
 Silence hallucinations are counted as insertions even with zero reference words.
+
+## Real-time latency replay
+
+The `realtime` command feeds verified PCM to the production recognizer every
+250 ms on an independent producer thread. A separate consumer performs model
+inference while UI events are collected at the desktop application's 120 ms
+polling interval. The report includes WER/CER, queue drops, queue depth,
+per-speaker results, p50/p95 delivery latency, and review-only error candidates.
+
+```powershell
+py -3.10 -m asr_lab realtime data\manifests\verified.jsonl `
+  --model E:\models\large-v3-turbo `
+  --terms-file config\technical_terms.json `
+  --profile production_pause `
+  --device gpu `
+  --output E:\OPERATOR_ASSIST_LAB\tmp\realtime-run
+```
+
+Output directories are never overwritten. `error-candidates.json` never edits
+the application dictionary; each proposed replacement requires human review.
 Term coverage counts expected, recognized and extra mentions, not contextual
 semantic correctness; critical errors still require review.
 
