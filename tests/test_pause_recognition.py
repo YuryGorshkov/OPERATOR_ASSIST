@@ -48,12 +48,13 @@ class Model:
         return iter(next(self.responses, ())), SimpleNamespace()
 
 
-def engine(model):
+def engine(model, *, preview_enabled=False):
     bundle = PreciseEngineBundle(model, "fixture", "cpu", "int8", Path("."))
     return PauseAwareWhisperEngine(
         bundle,
         detector=Detector(),
         text_postprocessor=lambda text, **_kwargs: text,
+        config=PauseAwareWhisperConfig(preview_enabled=preview_enabled),
     )
 
 
@@ -166,6 +167,29 @@ class PauseAwareWhisperTests(unittest.TestCase):
         self.assertEqual(["first phrase"], [update.text for update in updates])
         self.assertLessEqual(candidate.peak_buffer_seconds, 5.0)
         self.assertAlmostEqual(4.6, len(model.calls[0][0]) / 16000, places=6)
+
+    def test_preview_is_fast_non_committing_and_cleared_by_final(self):
+        model = Model(
+            [SimpleNamespace(text=" draft words", words=None, no_speech_prob=0.1)],
+            [segment(0.1, (" final words", 0.2, 1.0))],
+        )
+        candidate = engine(model, preview_enabled=True)
+
+        preview = candidate.consume_chunk(pcm(2.5))
+        final = candidate.consume_chunk(pcm(2.1))
+
+        self.assertEqual(
+            [("partial", "draft words")],
+            [(item.kind, item.text) for item in preview],
+        )
+        self.assertEqual(
+            [("partial", ""), ("final", "final words")],
+            [(item.kind, item.text) for item in final],
+        )
+        self.assertEqual(1, model.calls[0][1]["beam_size"])
+        self.assertFalse(model.calls[0][1]["word_timestamps"])
+        self.assertEqual(8, model.calls[1][1]["beam_size"])
+        self.assertTrue(model.calls[1][1]["word_timestamps"])
 
     def test_single_character_tail_is_suppressed_but_yes_is_preserved(self):
         debris = engine(Model([segment(0.1, (" у", 0.1, 0.2))]))

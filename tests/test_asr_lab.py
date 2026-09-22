@@ -240,6 +240,17 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(PROFILES["production_pause"].preprocessing)
         self.assertEqual(8, engine.config.beam_size)
 
+    def test_preview_control_profile_disables_only_preview_updates(self):
+        candidate, _observed = make_engine(
+            bundle(FakeModel("recognized")),
+            PROFILES["pause_preview_off"],
+            text_postprocessor=lambda text, **_: text,
+        )
+
+        self.assertFalse(candidate.config.preview_enabled)
+        self.assertEqual(12.0, candidate.config.flush_seconds)
+        self.assertEqual(8, candidate.config.beam_size)
+
     def test_pause_tuning_profiles_change_only_declared_runtime_setting(self):
         expected = {
             "pause_initial_6": ("initial_flush_seconds", 6.0),
@@ -345,6 +356,8 @@ class BenchmarkTests(unittest.TestCase):
                                postprocessor=lambda text, **_: text)
         self.assertEqual(0, result["scores"]["wer"]["errors"])
         self.assertEqual(1, result["first_result_buffer_seconds"])
+        self.assertIsNone(result["first_preview_buffer_seconds"])
+        self.assertEqual(0, result["preview_updates"])
         self.assertEqual("correct words", result["raw_hypothesis"])
         self.assertEqual("ru", result["trace"][0]["options"]["language"])
 

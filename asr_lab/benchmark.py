@@ -66,7 +66,8 @@ def replay_sample(bundle, profile, sample, *, postprocessor, hotwords="", chunk_
     engine, observed = make_engine(bundle, profile, text_postprocessor=postprocessor, hotwords=hotwords)
     preprocessor = SpeechAudioPreprocessor.speaker_default() if profile.preprocessing else None
     block_bytes = int(16000 * chunk_ms / 1000) * 2
-    outputs, first_result, preprocessing_seconds, gated_seconds = [], None, 0.0, 0.0
+    outputs, first_result, first_preview = [], None, None
+    preview_updates, preprocessing_seconds, gated_seconds = 0, 0.0, 0.0
     gap_queued = False
     started = time.perf_counter()
     for offset in range(0, len(pcm), block_bytes):
@@ -87,6 +88,10 @@ def replay_sample(bundle, profile, sample, *, postprocessor, hotwords="", chunk_
                 outputs.append(update.text)
                 if first_result is None:
                     first_result = observed.input_end_seconds
+            elif update.kind == "partial" and update.text:
+                preview_updates += 1
+                if first_preview is None:
+                    first_preview = observed.input_end_seconds
     for update in engine.finalize():
         if update.kind == "final":
             outputs.append(update.text)
@@ -94,7 +99,13 @@ def replay_sample(bundle, profile, sample, *, postprocessor, hotwords="", chunk_
                 first_result = len(pcm) / 32000.0
     elapsed = time.perf_counter() - started
     text = " ".join(outputs)
-    raw_text = " ".join(call.get("raw_text", "") for call in observed.calls).strip()
+    raw_calls = observed.calls
+    if profile.engine_kind == "pause":
+        raw_calls = [
+            call for call in raw_calls
+            if call.get("options", {}).get("word_timestamps")
+        ]
+    raw_text = " ".join(call.get("raw_text", "") for call in raw_calls).strip()
     samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
     duration = len(pcm) / 32000.0
     return {
@@ -107,6 +118,8 @@ def replay_sample(bundle, profile, sample, *, postprocessor, hotwords="", chunk_
         "preprocessing_seconds": preprocessing_seconds, "gated_audio_seconds": gated_seconds,
         "real_time_factor": elapsed / duration,
         "first_result_buffer_seconds": first_result,
+        "first_preview_buffer_seconds": first_preview,
+        "preview_updates": preview_updates,
         "input_peak": float(np.max(np.abs(samples))),
         "input_rms": float(np.sqrt(np.mean(samples * samples))),
         "clipped_samples": int(np.sum(np.abs(samples) >= 32767)),
@@ -121,6 +134,10 @@ def summarize_results(results):
         good = [result for result in group if "error" not in result]
         audio_seconds = sum(result["audio_seconds"] for result in good)
         wall_seconds = sum(result["engine_wall_seconds"] for result in good)
+        preview_delays = [
+            result["first_preview_buffer_seconds"] for result in good
+            if result.get("first_preview_buffer_seconds") is not None
+        ]
         summaries.append({
             "profile": name, "samples": len(group), "failed_samples": len(group) - len(good),
             "wer": aggregate([result["scores"] for result in good], "wer"),
@@ -128,6 +145,10 @@ def summarize_results(results):
             "raw_wer": aggregate([result["raw_scores"] for result in good], "wer"),
             "audio_seconds": audio_seconds, "engine_wall_seconds": wall_seconds,
             "real_time_factor": wall_seconds / audio_seconds if audio_seconds else None,
+            "preview_updates": sum(result.get("preview_updates", 0) for result in good),
+            "mean_first_preview_buffer_seconds": (
+                sum(preview_delays) / len(preview_delays) if preview_delays else None
+            ),
             "silence_insertions": sum(result["scores"]["wer"]["insertions"] for result in good
                                       if not result["scores"]["wer"]["reference"]),
             "critical_terms_expected": sum(term["expected"] for result in good for term in result["critical_terms"]),

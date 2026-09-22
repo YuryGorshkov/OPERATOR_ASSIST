@@ -6,6 +6,22 @@ All notable repository-facing changes are documented here.
 
 No unreleased changes.
 
+## v1.4.2 - 2026-09-22
+
+Responsive precise-transcription release.
+
+Highlights:
+
+- show one fast provisional Whisper result after 2.5 seconds of continuous speech while preserving the beam-8 final decoder
+- reduce measured first visible text from about 5.6 seconds to about 3.4 seconds on the verified 92-second development stream
+- preserve the final 11.54% WER and 3.14% CER measured on that stream; provisional text never enters saved transcripts or copied final text
+- keep preview work bounded to one greedy pass per pending phrase; measured total RTF remains 0.30 on the local GPU check
+- preserve partial-update semantics when a session is stopped and clear provisional text after the final result
+- record the model actually used by the last session in exported TXT metadata even after recognition has stopped
+- report preview latency separately in the offline ASR lab and exclude provisional decoder calls from final raw-text scoring
+
+These latency and accuracy measurements use a small single-book development sample and describe the tested machine, not a universal performance guarantee.
+
 ## v1.4.1 - 2026-09-21
 
 Precise-decoder search tuning release.

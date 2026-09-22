@@ -142,9 +142,10 @@ This dual-path strategy is important because Windows audio environments vary a l
 1. The model loads in a background thread.
 2. Capture workers push audio chunks into bounded queues.
 3. Recognition workers decode Vosk results incrementally, or buffer the caller channel for selectable Whisper `large-v3` / `large-v3-turbo` decoding.
-4. Final and interim results are marshaled back through the UI queue.
-5. The UI updates separate panels for operator and speaker text.
-6. Final speaker text is additionally used as prompt input for AI workflows.
+4. Long Whisper utterances get one bounded greedy preview before the unchanged beam-search final pass; previews do not advance audio ownership or enter transcript history.
+5. Final and interim results are marshaled back through the UI queue.
+6. The UI updates separate panels for operator and speaker text.
+7. Final speaker text is additionally used as prompt input for AI workflows.
 
 The queue-based approach prevents the GUI thread from becoming the recognition engine.
 

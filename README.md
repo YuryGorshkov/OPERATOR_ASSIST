@@ -144,6 +144,8 @@ OPERATOR_ASSIST/
 6. Choose `Точный (Whisper)`, then select `Качество (large-v3)` or the smaller `Быстрый запуск (large-v3-turbo)` model. Each model is prepared only on its first use.
 7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
 
+During longer Whisper utterances, the muted line below the transcript shows a fast provisional result. The main text remains the higher-accuracy final result and is the only text included in copy and TXT export actions.
+
 More detail: [docs/install-from-release.md](docs/install-from-release.md)
 
 ### Option B: Run from source

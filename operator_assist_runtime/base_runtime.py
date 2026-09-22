@@ -60,7 +60,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -687,20 +687,23 @@ class TranscriptionWorker:
                     updates = engine.consume_chunk(chunk)
 
                 for update in updates:
-                    if update.kind == "final":
-                        LOGGER.info("[%s] Final text: %s", self.label, short_text(update.text, 400))
-                        self.ui_queue.put(("final", self.label, update.text, time.monotonic()))
-                    else:
-                        self.ui_queue.put(("partial", self.label, update.text))
+                    self._publish_recognition_update(update)
 
             for update in engine.finalize():
-                LOGGER.info("[%s] Final tail text: %s", self.label, short_text(update.text, 400))
-                self.ui_queue.put(("final", self.label, update.text, time.monotonic()))
+                self._publish_recognition_update(update, tail=True)
         except Exception:
             LOGGER.exception("[%s] Recognizer thread crashed", self.label)
             self.ui_queue.put(("hint", f"{self.label}: ошибка распознавания, детали в логе"))
         finally:
             LOGGER.info("[%s] Recognizer thread finished", self.label)
+
+    def _publish_recognition_update(self, update, *, tail=False):
+        if update.kind == "final":
+            label = "Final tail text" if tail else "Final text"
+            LOGGER.info("[%s] %s: %s", self.label, label, short_text(update.text, 400))
+            self.ui_queue.put(("final", self.label, update.text, time.monotonic()))
+        else:
+            self.ui_queue.put(("partial", self.label, update.text))
 
 
 class OperatorAssistApp:
@@ -731,6 +734,7 @@ class OperatorAssistApp:
         self.recent_speaker_finals = deque()
         self.last_sent_speaker_chars = 0
         self.pending_prompt_snapshot_len = 0
+        self.last_session_model_name = ""
 
         self.mic_device_var = tk.StringVar()
         self.speaker_device_var = tk.StringVar()
@@ -1965,6 +1969,8 @@ class OperatorAssistApp:
             messagebox.showerror(APP_TITLE, f"Не удалось запустить распознавание:\n{error}")
             return
 
+        self.last_session_model_name = self._recognition_model_name()
+
         self.active_route_info = {}
         if mic_enabled:
             self.active_route_info["mic"] = self._selected_mic_source_info()
@@ -2269,7 +2275,7 @@ class OperatorAssistApp:
         content = (
             f"{APP_TITLE}\n"
             f"Создано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
-            f"Модель: {self._recognition_model_name()}\n"
+            f"Модель: {self.last_session_model_name or self._recognition_model_name()}\n"
             f"Частота распознавания: {TARGET_SAMPLE_RATE} Hz\n"
             f"Лог: {LOG_PATH.name}\n\n"
             "Я / оператор:\n"

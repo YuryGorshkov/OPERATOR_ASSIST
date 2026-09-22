@@ -37,6 +37,9 @@ class PauseAwareWhisperConfig:
     no_speech_reject_threshold: float = DEFAULT_NO_SPEECH_REJECT_THRESHOLD
     beam_size: int = 8
     best_of: int = 5
+    preview_enabled: bool = True
+    preview_after_seconds: float = 2.5
+    preview_beam_size: int = 1
 
 
 def _word_key(value):
@@ -179,6 +182,8 @@ class PauseAwareWhisperEngine:
         self.deferred_words = []
         self.peak_buffer_seconds = 0.0
         self.rejected_no_speech_segments = 0
+        self.preview_emitted_for_owner = False
+        self.preview_visible = False
 
     def _validate_config(self):
         config = self.config
@@ -201,6 +206,16 @@ class PauseAwareWhisperEngine:
             raise ValueError("Invalid pause-aware decoder search size.")
         if not 1 <= config.beam_size <= 10 or not 1 <= config.best_of <= 10:
             raise ValueError("Invalid pause-aware decoder search size.")
+        if not isinstance(config.preview_enabled, bool):
+            raise ValueError("Invalid preview mode flag.")
+        if not 0.5 <= config.preview_after_seconds <= config.initial_flush_seconds:
+            raise ValueError("Invalid preview start duration.")
+        if (
+            isinstance(config.preview_beam_size, bool)
+            or not isinstance(config.preview_beam_size, int)
+            or not 1 <= config.preview_beam_size <= config.beam_size
+        ):
+            raise ValueError("Invalid preview decoder search size.")
         filter_no_speech_segments((), config.no_speech_reject_threshold)
 
     def consume_gap(self):
@@ -256,6 +271,8 @@ class PauseAwareWhisperEngine:
                     duration_cap * self.config.sample_rate
                 )
                 updates.extend(self._emit(boundary, "cap"))
+            elif self._preview_ready(pending_duration, quiet):
+                updates.extend(self._preview())
             elif not self.has_speech and not self.pending_words:
                 self._trim(
                     max(
@@ -265,6 +282,65 @@ class PauseAwareWhisperEngine:
                 )
                 self.owner_start = max(self.owner_start, self.buffer_start)
         return updates
+
+    def _preview_ready(self, pending_duration, quiet):
+        if (
+            not self.config.preview_enabled
+            or not self.has_speech
+            or self.preview_emitted_for_owner
+        ):
+            return False
+        if quiet * 1000 >= self.config.pause_ms:
+            return False
+        if pending_duration < self.config.preview_after_seconds:
+            return False
+        return True
+
+    def _preview(self):
+        sample_rate = self.config.sample_rate
+        start = max(self.owner_start, self.buffer_start)
+        audio_bytes = bytes(self.buffer[(start - self.buffer_start) * 2 :])
+        audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        started_at = time.perf_counter()
+        segments, _info = self.bundle.model.transcribe(
+            audio,
+            language="ru",
+            task="transcribe",
+            beam_size=self.config.preview_beam_size,
+            best_of=self.config.preview_beam_size,
+            condition_on_previous_text=False,
+            initial_prompt=None,
+            word_timestamps=False,
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": self.config.vad_silence_ms},
+        )
+        segments, rejected = filter_no_speech_segments(
+            list(segments), self.config.no_speech_reject_threshold
+        )
+        raw_text = " ".join(
+            str(getattr(segment, "text", "") or "").strip()
+            for segment in segments
+            if str(getattr(segment, "text", "") or "").strip()
+        )
+        text = self.postprocessor(raw_text, log_changes=False) if raw_text else ""
+        if text and not is_meaningful_final_text(text):
+            text = ""
+        self.preview_emitted_for_owner = True
+        was_visible = self.preview_visible
+        self.preview_visible = bool(text)
+        elapsed = time.perf_counter() - started_at
+        audio_seconds = len(audio) / float(sample_rate)
+        self._logger.info(
+            "Whisper preview processed. audio=%.2fs inference=%.2fs rtf=%.2f chars=%s rejected=%s",
+            audio_seconds,
+            elapsed,
+            elapsed / audio_seconds if audio_seconds else 0.0,
+            len(text),
+            len(rejected),
+        )
+        if text or was_visible:
+            return [RecognitionUpdate("partial", text)]
+        return []
 
     def _trim(self, start):
         remove_samples = max(0, start - self.buffer_start)
@@ -376,11 +452,18 @@ class PauseAwareWhisperEngine:
             self.last_word = words[-1]
         self.initial_result_seen |= decoder_had_text
         self.owner_start = boundary
+        self.preview_emitted_for_owner = False
         self.deferred_words = deferred
         self.pending_words = pending and boundary < self.received
         self._trim(next_start)
         self.has_speech = tail_has_speech
-        return [RecognitionUpdate("final", text)] if text else []
+        updates = []
+        if self.preview_visible:
+            updates.append(RecognitionUpdate("partial", ""))
+            self.preview_visible = False
+        if text:
+            updates.append(RecognitionUpdate("final", text))
+        return updates
 
     def finalize(self):
         if self.closed:

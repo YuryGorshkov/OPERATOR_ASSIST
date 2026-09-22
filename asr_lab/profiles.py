@@ -23,12 +23,19 @@ class Profile:
     pause_min_window_seconds: float = 2.5
     pause_beam_size: int = 8
     pause_best_of: int = 5
+    pause_preview_enabled: bool = True
 
 
 PROFILES = {
     profile.name: profile for profile in (
         Profile("baseline"),
         Profile("production_pause", engine_kind="pause", preprocessing=False),
+        Profile(
+            "pause_preview_off",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_preview_enabled=False,
+        ),
         Profile(
             "pause_initial_6",
             engine_kind="pause",

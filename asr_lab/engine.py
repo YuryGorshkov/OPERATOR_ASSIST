@@ -86,6 +86,7 @@ def make_engine(bundle, profile, *, text_postprocessor, hotwords=""):
             pause_min_window_seconds=profile.pause_min_window_seconds,
             beam_size=profile.pause_beam_size,
             best_of=profile.pause_best_of,
+            preview_enabled=profile.pause_preview_enabled,
         )
         engine = PauseAwareWhisperEngine(
             observed_bundle,

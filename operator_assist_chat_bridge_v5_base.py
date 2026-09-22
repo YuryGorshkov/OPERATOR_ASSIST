@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.4.1"
+WRAPPER_VERSION = "1.4.2"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -1005,6 +1005,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             self.stop_transcription()
             runtime.messagebox.showerror(runtime.APP_TITLE, f"Не удалось запустить распознавание:\n{error}")
             return
+
+        self.last_session_model_name = self._recognition_model_name()
 
         self.active_route_info = {}
         if mic_route_info is not None:
