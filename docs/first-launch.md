@@ -35,7 +35,7 @@ The model archive must be extracted, not left as a `.zip`.
 6. Confirm the enabled caller channel points to `WASAPI loopback` or a suitable fallback such as `Stereo Mix`.
 7. If the correct caller route is unclear, play test audio and click `Найти звук`.
 8. Choose `Стабильный (Vosk)` for the lightest mode or `Точный (Whisper)` for higher caller accuracy.
-9. In Whisper mode, choose `Качество (large-v3)` or `Быстрый запуск (large-v3-turbo)`.
+9. In Whisper mode, choose `Максимальная точность (large-v3)` for difficult speech and accents or `Быстрый режим (large-v3-turbo)` for lower latency.
 10. Choose `Видеокарта (GPU/CUDA)` or `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable; CPU mode never tries to allocate video memory.
 11. Wait until the readiness block reports that the app is ready, then press `Старт`.
 

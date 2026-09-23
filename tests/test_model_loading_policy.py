@@ -101,6 +101,15 @@ class ModelLoadingPolicyTests(unittest.TestCase):
             base_runtime.precise_model_key_from_label("unknown"),
         )
 
+    def test_precise_model_hints_explain_the_measured_tradeoff(self):
+        accurate_hint = base_runtime.precise_model_hint(base_runtime.PRECISE_MODEL_ACCURATE)
+        fast_hint = base_runtime.precise_model_hint(base_runtime.PRECISE_MODEL_FAST)
+
+        self.assertIn("точнее", accurate_hint)
+        self.assertIn("дольше", accurate_hint)
+        self.assertIn("быстрее", fast_hint)
+        self.assertIn("чаще ошибается", fast_hint)
+
     def _app_for_route(self, *, mic_enabled, speaker_enabled, speaker_mode):
         app = base_runtime.OperatorAssistApp.__new__(base_runtime.OperatorAssistApp)
         app._capture_mic_enabled = lambda: mic_enabled

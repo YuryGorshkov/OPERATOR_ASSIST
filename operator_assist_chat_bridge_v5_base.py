@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.5.1"
+WRAPPER_VERSION = "1.5.2"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -763,7 +763,9 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self._schedule_model_loading_tick()
         self.status_var.set("Загружаю точный режим")
         self.hint_var.set(
-            f"Whisper загружается в фоне. Выбран вычислитель: {runtime.precise_device_label(requested_device)}."
+            f"Whisper {requested_model} загружается в фоне. "
+            f"{runtime.precise_model_hint(requested_model)} "
+            f"Выбран вычислитель: {runtime.precise_device_label(requested_device)}."
         )
         self._set_audio_controls_running_state(True)
         self._update_start_button_state()

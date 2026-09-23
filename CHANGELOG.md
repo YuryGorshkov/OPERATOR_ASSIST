@@ -4,12 +4,22 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
+## v1.5.2 - 2026-09-23
+
+Real-world recognition hardening release.
+
 Highlights:
 
 - reproduce the confident `Субтитры создавал DimaTorzok` Whisper hallucination on a publisher's music-only podcast intro
 - suppress only the reproduced `DimaTorzok` subtitle-credit signature in both provisional and final precise-mode output
 - preserve other subtitle-related phrases and the existing probability-based no-speech guard
 - validate the fix against the same three unchanged music intros: zero emitted words and zero dropped audio blocks
+- validate both selectable Whisper models against the same 83-second accented podcast sample with no dropped audio blocks
+- measure `large-v3` at 18.11% WER and 9.02% CER versus `large-v3-turbo` at 32.28% WER and 17.06% CER on that development sample
+- retain both profiles because the full model improves accuracy while increasing median final-event latency from 2.51 to 3.84 seconds on the tested GPU
+- clarify the model selector and in-app guidance as `Максимальная точность` versus `Быстрый режим`
+
+These measurements describe a small local development sample and the tested machine; they are not a general accuracy guarantee.
 
 ## v1.5.1 - 2026-09-22
 

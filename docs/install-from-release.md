@@ -48,7 +48,7 @@ The packaged app still expects an external Russian Vosk model. Before first succ
 
 The model must be extracted as a folder, not left inside a zip archive.
 
-The optional `Точный (Whisper)` caller mode offers `Качество (large-v3)` and `Быстрый запуск (large-v3-turbo)`. Their cache is stored under `data/models/whisper-cache/`; each model's first preparation can take noticeably longer than later starts. Cached snapshots are opened directly so later launches do not repeat hub resolution. The compute selector offers `Видеокарта (GPU/CUDA)` and `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable, while CPU mode deliberately avoids video-memory allocation.
+The optional `Точный (Whisper)` caller mode offers `Максимальная точность (large-v3)` for difficult speech and accents and `Быстрый режим (large-v3-turbo)` for lower startup and recognition latency. Their cache is stored under `data/models/whisper-cache/`; each model's first preparation can take noticeably longer than later starts. Cached snapshots are opened directly so later launches do not repeat hub resolution. The compute selector offers `Видеокарта (GPU/CUDA)` and `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable, while CPU mode deliberately avoids video-memory allocation.
 
 ## First Launch Checklist
 

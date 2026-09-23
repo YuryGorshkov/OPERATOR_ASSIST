@@ -64,7 +64,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -114,8 +114,8 @@ PRECISE_DEVICE_CHOICES = (
 PRECISE_MODEL_ACCURATE = "large-v3"
 PRECISE_MODEL_FAST = "large-v3-turbo"
 PRECISE_MODEL_CHOICES = (
-    (PRECISE_MODEL_ACCURATE, "Качество (large-v3)"),
-    (PRECISE_MODEL_FAST, "Быстрый запуск (large-v3-turbo)"),
+    (PRECISE_MODEL_ACCURATE, "Максимальная точность (large-v3)"),
+    (PRECISE_MODEL_FAST, "Быстрый режим (large-v3-turbo)"),
 )
 
 
@@ -491,6 +491,12 @@ def precise_model_key_from_label(label):
         if model_label == label:
             return key
     return PRECISE_MODEL_ACCURATE
+
+
+def precise_model_hint(model_key):
+    if model_key == PRECISE_MODEL_FAST:
+        return "Turbo быстрее загружается и выводит текст, но чаще ошибается на сложной речи и акцентах."
+    return "Полная large-v3 точнее на сложной речи и акцентах, но загружается и распознаёт заметно дольше."
 
 
 def format_channel_count(count):
@@ -1807,14 +1813,17 @@ class OperatorAssistApp:
         mode_key = self._current_speaker_mode_key()
         if mode_key == SPEAKER_MODE_PRECISE:
             available, message = self._precise_mode_status()
+            model_hint = precise_model_hint(self._current_precise_model_key())
             if available:
                 if self._current_precise_device_key() == PRECISE_DEVICE_CPU:
                     self.hint_var.set(
-                        f"{message} Whisper будет работать на процессоре; видеопамять не используется."
+                        f"{message} {model_hint} Whisper будет работать на процессоре; "
+                        "видеопамять не используется."
                     )
                 else:
                     self.hint_var.set(
-                        f"{message} Whisper будет загружен на GPU; при недоступной CUDA программа перейдет на CPU."
+                        f"{message} {model_hint} Whisper будет загружен на GPU; "
+                        "при недоступной CUDA программа перейдет на CPU."
                     )
             else:
                 self.hint_var.set(f"Точный режим недоступен: {message}")

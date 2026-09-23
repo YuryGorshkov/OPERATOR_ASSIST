@@ -142,7 +142,7 @@ OPERATOR_ASSIST/
 3. Install or extract the package.
 4. Place one supported Vosk model into `data/models/`.
 5. Start the app, choose the required channels, and use `Найти звук` while test audio is playing if the system route is unclear.
-6. Choose `Точный (Whisper)`, then select `Качество (large-v3)` or the smaller `Быстрый запуск (large-v3-turbo)` model. Each model is prepared only on its first use.
+6. Choose `Точный (Whisper)`, then select `Максимальная точность (large-v3)` for difficult speech and accents or the smaller `Быстрый режим (large-v3-turbo)` when responsiveness matters more. Each model is prepared only on its first use.
 7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
 
 During longer Whisper utterances, the muted line below the transcript shows a fast provisional result. The main text remains the higher-accuracy final result and is the only text included in copy and TXT export actions.
