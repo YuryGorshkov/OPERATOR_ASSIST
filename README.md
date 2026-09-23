@@ -41,7 +41,7 @@ Windows-ассистент оператора для раздельной рас
 
 ## Демонстрация
 
-![Схема работы OPERATOR_ASSIST](docs/images/operator-assist-overview.svg)
+![Схема работы OPERATOR_ASSIST](docs/images/operator-assist-overview-ru.svg)
 
 ## Основные возможности
 

@@ -21,41 +21,41 @@
 
   <rect x="56" y="56" width="1288" height="120" rx="28" fill="url(#accent)"/>
   <text x="96" y="112" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="700">OPERATOR_ASSIST</text>
-  <text x="96" y="148" fill="#DCEAF7" font-family="Segoe UI, Arial, sans-serif" font-size="22">Windows-first dual-stream speech workflow for operator support and AI prompt preparation</text>
+  <text x="96" y="148" fill="#DCEAF7" font-family="Segoe UI, Arial, sans-serif" font-size="22">Local dual-stream transcription and AI context preparation</text>
 
   <rect x="96" y="214" width="272" height="176" rx="24" fill="#F5FBFA" stroke="#B9E3DA" stroke-width="2"/>
   <text x="124" y="258" fill="#0F766E" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Audio Inputs</text>
-  <text x="124" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Operator microphone</text>
-  <text x="124" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• WASAPI loopback</text>
-  <text x="124" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Stereo Mix fallback</text>
+  <text x="124" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Operator microphone</text>
+  <text x="124" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• WASAPI loopback</text>
+  <text x="124" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Stereo Mix fallback</text>
 
   <rect x="420" y="214" width="272" height="176" rx="24" fill="#F7F8FE" stroke="#C9D5F2" stroke-width="2"/>
   <text x="448" y="258" fill="#17406D" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Recognition Core</text>
-  <text x="448" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Vosk offline STT</text>
-  <text x="448" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Background model load</text>
-  <text x="448" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Queue-based workers</text>
+  <text x="448" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Vosk: fast mode</text>
+  <text x="448" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="18">• Whisper: precise mode</text>
+  <text x="448" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Background workers</text>
 
   <rect x="744" y="214" width="272" height="176" rx="24" fill="#FFF9F2" stroke="#F3D7A4" stroke-width="2"/>
   <text x="772" y="258" fill="#8A5A00" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Post-processing</text>
-  <text x="772" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Technical term dictionary</text>
-  <text x="772" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• IT mode toggle</text>
-  <text x="772" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Duplicate suppression</text>
+  <text x="772" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Technical dictionary</text>
+  <text x="772" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• IT mode toggle</text>
+  <text x="772" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Duplicate suppression</text>
 
   <rect x="1068" y="214" width="220" height="176" rx="24" fill="#FDF3F4" stroke="#F1C5CB" stroke-width="2"/>
   <text x="1096" y="258" fill="#8A2F39" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Outputs</text>
-  <text x="1096" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Split transcript UI</text>
-  <text x="1096" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• TXT export</text>
-  <text x="1096" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">• Clipboard / prompts</text>
+  <text x="1096" y="302" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• Split transcript</text>
+  <text x="1096" y="336" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• TXT export</text>
+  <text x="1096" y="370" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">• AI-ready context</text>
 
   <rect x="96" y="448" width="560" height="158" rx="24" fill="#F9FBFD" stroke="#D9E2EC" stroke-width="2"/>
-  <text x="124" y="492" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Primary Desktop Surface</text>
-  <text x="124" y="536" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">Native Tkinter workflow for support calls and operator-facing transcription.</text>
-  <text x="124" y="570" fill="#5F7184" font-family="Segoe UI, Arial, sans-serif" font-size="20">Separate operator/caller panes, logs, exports, and AI prompt assembly.</text>
+  <text x="124" y="492" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Primary Desktop App</text>
+  <text x="124" y="536" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">Tkinter workflow for operator support calls.</text>
+  <text x="124" y="570" fill="#5F7184" font-family="Segoe UI, Arial, sans-serif" font-size="19">Separate panes, diagnostics, logs, and export.</text>
 
   <rect x="708" y="448" width="580" height="158" rx="24" fill="#F9FBFD" stroke="#D9E2EC" stroke-width="2"/>
-  <text x="736" y="492" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Secondary Product Surfaces</text>
-  <text x="736" y="536" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="21">Browser voice-notes prototype and experimental ChatGPT/Chrome bridge.</text>
-  <text x="736" y="570" fill="#5F7184" font-family="Segoe UI, Arial, sans-serif" font-size="20">Useful for demos, fast iteration, and workflow exploration beyond the main desktop app.</text>
+  <text x="736" y="492" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">Secondary Tools</text>
+  <text x="736" y="536" fill="#17324D" font-family="Segoe UI, Arial, sans-serif" font-size="19">Browser voice notes and ChatGPT/Chrome bridge.</text>
+  <text x="736" y="570" fill="#5F7184" font-family="Segoe UI, Arial, sans-serif" font-size="19">Prototypes for demos and workflow experiments.</text>
 
   <path d="M368 302H420" stroke="#6C8BA8" stroke-width="5" stroke-linecap="round"/>
   <path d="M692 302H744" stroke="#6C8BA8" stroke-width="5" stroke-linecap="round"/>
