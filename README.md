@@ -1,7 +1,9 @@
 # OPERATOR_ASSIST
 
+**Русский** | [English](README.en.md)
+
 <p align="center">
-  <img src="assets/logo-enot-256.png" alt="OPERATOR_ASSIST logo" width="128">
+  <img src="assets/logo-enot-256.png" alt="Логотип OPERATOR_ASSIST" width="128">
 </p>
 
 [![CI](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml/badge.svg)](https://github.com/YuryGorshkov/OPERATOR_ASSIST/actions/workflows/ci.yml)
@@ -11,120 +13,113 @@
 ![Audio](https://img.shields.io/badge/audio-WASAPI%20loopback%20%2F%20Stereo%20Mix-8A2BE2)
 ![UI](https://img.shields.io/badge/UI-Tkinter%20desktop-F59E0B)
 
-Windows-first desktop assistant for dual-stream transcription: one channel for the operator microphone, one channel for caller or system audio, with offline Russian speech recognition, transcript export, and optional AI handoff tooling.
+Windows-ассистент оператора для раздельной расшифровки двух аудиопотоков: микрофона оператора и речи собеседника или системного звука. Приложение локально распознаёт русскую речь, экспортирует расшифровку и готовит контекст для ИИ-подсказок.
 
-## At A Glance
+## Кратко о проекте
 
-| Area | Current implementation | Status |
+| Область | Текущая реализация | Статус |
 | --- | --- | --- |
-| Desktop runtime | Tkinter app with separate operator and speaker panes | Primary |
-| Audio capture | Microphone plus WASAPI loopback or fallback recording input | Primary |
-| Speech recognition | Fast local Vosk plus selectable Whisper quality and turbo models | Primary |
-| Prompt handoff | Copy/export workflow plus optional Chrome injection experiment | Optional |
-| Browser surfaces | Voice notes and single-stream speaker prototypes | Prototype |
-| Distribution | Portable zip, installer build, GitHub Releases, CI | Available |
-| Recognition lab | Offline profile comparison and verified audio/text preparation | Developer Tooling |
+| Настольное приложение | Интерфейс Tkinter с отдельными панелями оператора и собеседника | Основная функция |
+| Захват аудио | Микрофон, WASAPI loopback или резервный источник записи | Основная функция |
+| Распознавание речи | Быстрый локальный Vosk и переключаемые модели Whisper | Основная функция |
+| Передача в ИИ | Копирование и экспорт контекста, экспериментальная интеграция с Chrome | Дополнительно |
+| Браузерные версии | Прототипы голосовых заметок и одноканального распознавания | Прототип |
+| Распространение | Portable-архив, установщик, GitHub Releases и CI | Доступно |
+| Лаборатория распознавания | Офлайн-сравнение профилей на проверенных парах аудио и текста | Инструмент разработки |
 
-## Repository Overview
+## Обзор
 
-`OPERATOR_ASSIST` was built around a practical Windows workflow problem:
+`OPERATOR_ASSIST` решает практическую задачу работы оператора в Windows:
 
-- the operator speaks into a headset microphone,
-- the other side of the conversation arrives through a different audio path,
-- both streams need to remain visible,
-- transcript text needs to be reusable immediately,
-- local deployment matters more than cloud dependency.
+- оператор говорит в микрофон гарнитуры;
+- речь собеседника поступает через отдельный аудиоканал;
+- оба потока должны отображаться раздельно;
+- расшифровка должна быть сразу готова к дальнейшей работе;
+- основные функции не должны зависеть от облачных сервисов.
 
-The repository focuses on the engineering needed to make that workflow usable on a real Windows machine: audio routing, local STT, operator-facing diagnostics, packaging, and repeatable setup.
+Репозиторий содержит всё необходимое для устойчивой работы на реальном компьютере: маршрутизацию аудио, локальное распознавание речи, диагностику каналов, упаковку приложения и воспроизводимую установку.
 
-## Showcase
+## Демонстрация
 
-![OPERATOR_ASSIST workflow overview](docs/images/operator-assist-overview.svg)
+![Схема работы OPERATOR_ASSIST](docs/images/operator-assist-overview.svg)
 
-## Core Capabilities
+## Основные возможности
 
-- Simultaneous transcription of microphone audio and speaker or system audio into separate panels.
-- Offline Russian speech recognition using fast Vosk or selectable `faster-whisper large-v3` / `large-v3-turbo` models for the caller channel.
-- Selectable capture modes for both channels, caller only, or operator only.
-- Live source probe that identifies the input currently carrying system audio.
-- Automatic WASAPI loopback discovery with fallback to classic recording inputs such as Stereo Mix.
-- First-launch readiness checks for model presence, source selection, and saved settings.
-- Local transcript copy, TXT export, and logging.
-- Technical-term normalization with a switchable IT vocabulary mode.
-- Prompt assembly workflow based on the speaker transcript.
-- Optional Chrome handoff experiment for sending the prepared prompt into a ChatGPT page.
-- Lightweight browser prototypes for single-stream notes and speaker-text capture.
+- Одновременное распознавание микрофона и речи собеседника или системного звука в отдельных панелях.
+- Офлайн-распознавание русской речи: быстрый Vosk или модели `faster-whisper large-v3` / `large-v3-turbo` для канала собеседника.
+- Выбор активных каналов: оба, только собеседник или только оператор.
+- Поиск источника, через который в данный момент поступает системный звук.
+- Автоматическое обнаружение WASAPI loopback с резервным переходом на классические источники записи, например Stereo Mix.
+- Проверка наличия моделей, выбранных источников и сохранённых настроек перед первым запуском.
+- Копирование расшифровки, экспорт в TXT и ведение журналов.
+- Нормализация технических терминов с переключаемым ИТ-словарём.
+- Формирование запроса на основе расшифровки речи собеседника.
+- Экспериментальная передача подготовленного запроса на страницу ChatGPT через Chrome.
+- Облегчённые браузерные прототипы для голосовых заметок и одноканального распознавания.
 
-## Why The Design Looks Like This
+## Почему система устроена так
 
-- Windows audio routing varies heavily across machines, so the app exposes capture diagnostics instead of assuming one fixed hardware path.
-- Local speech recognition keeps the main workflow usable without API quotas; Vosk favors startup speed while Whisper favors accuracy.
-- Precise Whisper streaming follows detected pauses and assigns overlapping boundary words by timestamp, avoiding blind fixed-window cuts and text-based deduplication.
-- Technical vocabulary correction is handled as deterministic post-processing rather than pretending raw STT is always enough.
-- Experimental AI handoff stays separate from the core desktop runtime so the stable path remains understandable and testable.
+- Маршрутизация звука в Windows сильно зависит от оборудования и драйверов, поэтому приложение показывает диагностику каналов, а не полагается на один заранее заданный источник.
+- Локальное распознавание сохраняет работоспособность без API и внешних квот: Vosk быстрее запускается, а Whisper обеспечивает более высокую точность.
+- Потоковый режим Whisper ориентируется на обнаруженные паузы и распределяет слова на пересекающихся границах по временным меткам. Это надёжнее слепой нарезки на интервалы и текстового удаления дублей.
+- Исправление технической лексики выполняется прозрачным детерминированным постпроцессингом, поскольку одной сырой модели распознавания не всегда достаточно.
+- Экспериментальная интеграция с ИИ отделена от стабильного настольного ядра, чтобы основной сценарий оставался понятным и тестируемым.
 
-## System Architecture
+## Архитектура
 
 ```mermaid
 flowchart LR
-    Mic[Operator microphone] --> MicWorker[TranscriptionWorker]
-    Speaker[WASAPI loopback / Stereo Mix] --> SpeakerWorker[Loopback or fallback worker]
-    MicWorker --> Queue[UI event queue]
+    Mic[Микрофон оператора] --> MicWorker[Модуль распознавания]
+    Speaker[WASAPI loopback / Stereo Mix] --> SpeakerWorker[Основной или резервный модуль захвата]
+    MicWorker --> Queue[Очередь событий интерфейса]
     SpeakerWorker --> Queue
-    Dict[Technical term dictionary] --> PostProcess[Post-processing layer]
+    Dict[Словарь технических терминов] --> PostProcess[Постобработка]
     Queue --> PostProcess
-    PostProcess --> UI[Desktop UI]
-    UI --> Export[Copy / Save TXT / Logs]
-    UI --> Prompt[Prompt builder]
-    Prompt --> Clipboard[Clipboard]
-    Prompt --> Chrome[Experimental Chrome Bridge]
+    PostProcess --> UI[Настольный интерфейс]
+    UI --> Export[Копирование / TXT / журналы]
+    UI --> Prompt[Конструктор запроса]
+    Prompt --> Clipboard[Буфер обмена]
+    Prompt --> Chrome[Экспериментальная интеграция с Chrome]
 ```
 
-More detail: [docs/architecture.md](docs/architecture.md)
+Подробнее: [docs/architecture.md](docs/architecture.md)
 
-## Recognition Quality Lab
+## Лаборатория качества распознавания
 
-The optional `asr_lab` command-line tools compare recognition settings on the same
-human-verified audio/text corpus without changing the desktop runtime. The fixed-window
-`baseline` remains stable for reproducibility, while `production_pause` follows the
-current desktop engine; other experiments vary one factor at a time. Reports
-include WER/CER, raw versus normalized transcripts, terminology coverage and offline
-processing time. Tools can also convert authorized audio files and export paired
-training data, but do not record devices, train models or download weights automatically.
+Дополнительные консольные инструменты `asr_lab` позволяют сравнивать настройки распознавания на одном и том же корпусе аудио и текста, проверенном человеком, не изменяя настольное приложение. Профиль с фиксированными окнами `baseline` остаётся неизменным для воспроизводимости, а `production_pause` повторяет текущую логику рабочего движка. В остальных экспериментах за один запуск меняется только один фактор.
 
-The promoted precise-streaming profile was selected on a small, human-verified
-multi-voice development corpus and replayed against a captured control session.
-That evidence supports this runtime choice but is not a general accuracy guarantee.
-No fine-tuning has been performed. Private recordings, reference books, reports
-and checkpoints remain local and are excluded from Git.
-See [docs/recognition-lab.md](docs/recognition-lab.md) for the workflow and limitations.
+Отчёты содержат WER/CER, исходную и нормализованную расшифровки, покрытие терминологии и время офлайн-обработки. Инструменты также умеют преобразовывать разрешённые аудиофайлы и экспортировать парные данные для обучения, но не записывают устройства, не обучают модели и не загружают веса автоматически.
 
-## Runtime Surfaces
+Рабочий профиль точного потокового распознавания был выбран на небольшом многоголосовом корпусе, проверенном человеком, и повторно протестирован на сохранённой контрольной записи. Эти результаты подтверждают выбор профиля для текущего приложения, но не являются универсальной гарантией точности. Дообучение моделей не выполнялось. Личные записи, исходные книги, отчёты и контрольные точки остаются локальными и исключены из Git.
 
-| Surface | Entry point | Purpose |
+Описание процесса и ограничений: [docs/recognition-lab.md](docs/recognition-lab.md)
+
+## Компоненты и точки запуска
+
+| Компонент | Точка входа | Назначение |
 | --- | --- | --- |
-| Desktop operator assistant | `operator_assist.py` | Main Windows workflow with dual transcription and IT-mode corrections |
-| Loopback-enabled runtime | `operator_assist_chat_bridge_v5_base.py` | WASAPI loopback support and Windows source selection |
-| Shared runtime package | `operator_assist_runtime/base_runtime.py` | Recognition engine, UI orchestration, transcript flow, startup readiness |
-| Chrome bridge experiment | `operator_assist_chat_window_test.py` | Prompt injection into ChatGPT through Chrome remote debugging |
-| Browser voice notes | `app/index.html` | Lightweight note capture using Web Speech API |
-| Browser speaker text | `app/speaker.html` | Lightweight single-stream speaker transcription |
+| Настольный ассистент оператора | `operator_assist.py` | Основной сценарий Windows с двумя каналами и коррекцией технических терминов |
+| Среда с поддержкой loopback | `operator_assist_chat_bridge_v5_base.py` | WASAPI loopback и выбор источников Windows |
+| Общий пакет приложения | `operator_assist_runtime/base_runtime.py` | Движок распознавания, интерфейс, поток расшифровки и проверка готовности |
+| Экспериментальный мост Chrome | `operator_assist_chat_window_test.py` | Передача запроса в ChatGPT через режим удалённой отладки Chrome |
+| Браузерные голосовые заметки | `app/index.html` | Облегчённая запись заметок через Web Speech API |
+| Браузерная расшифровка собеседника | `app/speaker.html` | Облегчённое одноканальное распознавание речи |
 
-## Repository Layout
+## Структура репозитория
 
 ```text
 OPERATOR_ASSIST/
-├─ .github/workflows/                CI and tagged release automation
-├─ app/                              Browser prototypes
-├─ assets/                           Icons and logo assets
-├─ backups/                          Compatibility shim for older local entry points
-├─ docs/                             Architecture, setup, deployment, and demo notes
-├─ operator_assist_runtime/          Shared runtime package
-├─ packaging/                        PyInstaller and Inno Setup files
-├─ scripts/                          Build, bootstrap, environment, and helper scripts
-├─ tests/                            Repository and runtime unit tests
-├─ vendor/                           Vendored Windows loopback dependencies
-├─ operator_assist.py                Main desktop entry point
+├─ .github/workflows/                CI и автоматизация выпусков по тегам
+├─ app/                              Браузерные прототипы
+├─ assets/                           Иконки и логотипы
+├─ backups/                          Слой совместимости со старыми точками входа
+├─ docs/                             Архитектура, установка, выпуск и демонстрация
+├─ operator_assist_runtime/          Общий пакет рабочего приложения
+├─ packaging/                        Конфигурация PyInstaller и Inno Setup
+├─ scripts/                          Скрипты сборки, установки и проверки среды
+├─ tests/                            Модульные тесты репозитория и приложения
+├─ vendor/                           Локальные зависимости для Windows loopback
+├─ operator_assist.py                Основная точка входа настольного приложения
 ├─ operator_assist_chat_bridge_v5_base.py
 ├─ operator_assist_chat_window_test.py
 ├─ pyproject.toml
@@ -133,180 +128,180 @@ OPERATOR_ASSIST/
 └─ technical_terms.json
 ```
 
-## Quick Start
+## Быстрый старт
 
-### Option A: Install from GitHub Release
+### Вариант A: установка из GitHub Release
 
-1. Open [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
-2. Download either `OPERATOR_ASSIST-Setup-<version>.exe` or `OPERATOR_ASSIST-portable-<version>.zip`.
-3. Install or extract the package.
-4. Place one supported Vosk model into `data/models/`.
-5. Start the app, choose the required channels, and use `Найти звук` while test audio is playing if the system route is unclear.
-6. Choose `Точный (Whisper)`, then select `Максимальная точность (large-v3)` for difficult speech and accents or the smaller `Быстрый режим (large-v3-turbo)` when responsiveness matters more. Each model is prepared only on its first use.
-7. For Whisper, select `Видеокарта (GPU/CUDA)` for the usual best throughput or `Процессор (CPU)` when the target computer has a weak or unsupported GPU.
+1. Откройте раздел [Releases](https://github.com/YuryGorshkov/OPERATOR_ASSIST/releases).
+2. Скачайте `OPERATOR_ASSIST-Setup-<version>.exe` или `OPERATOR_ASSIST-portable-<version>.zip`.
+3. Установите приложение или распакуйте архив.
+4. Поместите поддерживаемую модель Vosk в каталог `data/models/`.
+5. Запустите приложение и выберите нужные каналы. Если источник системного звука неочевиден, включите тестовое аудио и нажмите `Найти звук`.
+6. Выберите `Точный (Whisper)`, затем `Максимальная точность (large-v3)` для сложной речи и акцентов либо более компактный `Быстрый режим (large-v3-turbo)`, если важнее скорость отклика. Каждая модель подготавливается только при первом использовании.
+7. Для Whisper выберите `Видеокарта (GPU/CUDA)`, чтобы получить максимальную производительность на совместимой видеокарте, или `Процессор (CPU)`, если видеокарта слабая либо не поддерживается.
 
-During longer Whisper utterances, the muted line below the transcript shows a fast provisional result. The main text remains the higher-accuracy final result and is the only text included in copy and TXT export actions.
+Во время длинных реплик Whisper приглушённая строка под основным полем показывает быстрый предварительный результат. Основной текст содержит более точную финальную версию; только она используется при копировании и экспорте в TXT.
 
-Use the `Словарь` button for names and domain terms the recognizer repeatedly writes incorrectly. Add one exact rule per line in the form `как распознано = как должно быть`; saved rules are reloaded on the next press of `Старт` and do not bias Whisper decoding.
+Кнопка `Словарь` предназначена для имён и специальных терминов, которые распознаватель регулярно записывает неправильно. Добавляйте по одному точному правилу в строке в формате `как распознано = как должно быть`. Сохранённые правила загружаются при следующем нажатии `Старт` и не вмешиваются в декодирование Whisper.
 
-More detail: [docs/install-from-release.md](docs/install-from-release.md)
+Подробнее: [docs/install-from-release.md](docs/install-from-release.md)
 
-### Option B: Run from source
+### Вариант B: запуск из исходного кода
 
-#### 1. Install Python 3.10
+#### 1. Установите Python 3.10
 
-The desktop runtime was developed against Python `3.10.x`.
+Настольное приложение разработано и проверено с Python `3.10.x`.
 
-#### 2. Clone the repository
+#### 2. Клонируйте репозиторий
 
 ```powershell
 git clone https://github.com/YuryGorshkov/OPERATOR_ASSIST.git
 cd OPERATOR_ASSIST
 ```
 
-#### 3. Run the Windows bootstrap helper
+#### 3. Запустите установочный помощник Windows
 
 ```text
 Setup-From-Git.cmd
 ```
 
-Equivalent PowerShell command:
+Эквивалентная команда PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup-From-Git.ps1
 ```
 
-This setup creates a project-local `.venv`, installs dependencies, prepares local folders, and runs a preflight check.
+Установщик создаёт локальное окружение `.venv`, устанавливает зависимости, подготавливает рабочие каталоги и выполняет предварительную проверку.
 
-#### 4. Add a Vosk model
+#### 4. Добавьте модель Vosk
 
-Place one supported Russian model under the local `models/` directory. The runtime checks these paths:
+Поместите одну из поддерживаемых русских моделей в локальный каталог `models/`. Приложение проверяет следующие пути:
 
 - `models/vosk-model-ru-0.42`
 - `models/vosk-model-ru-0.22`
 - `models/vosk-model-small-ru-0.22`
 
-#### 5. Launch the desktop app
+#### 5. Запустите настольное приложение
 
-Windows launcher:
+Командный файл Windows:
 
 ```text
 Run-Operator-Assist.cmd
 ```
 
-Main Python entry point:
+Основная точка входа Python:
 
 ```powershell
 python .\operator_assist.py
 ```
 
-#### 6. Review first-launch readiness
+#### 6. Проверьте готовность к первому запуску
 
-If the app cannot find a speech model yet, it shows a readiness block instead of failing only through modal errors.
+Если модель распознавания ещё не найдена, приложение показывает блок готовности вместо серии модальных ошибок.
 
-Use the in-app quick actions to:
+Быстрые действия в интерфейсе позволяют:
 
-- open the local model folder,
-- re-run startup checks,
-- confirm microphone and caller or system-audio routing,
-- verify both channels before pressing `Старт`.
+- открыть локальный каталог моделей;
+- повторить стартовую проверку;
+- проверить маршрутизацию микрофона и канала собеседника или системного звука;
+- убедиться, что оба канала работают, прежде чем нажимать `Старт`.
 
-More detail:
+Подробнее:
 
 - [docs/first-launch.md](docs/first-launch.md)
 - [docs/install-from-git.md](docs/install-from-git.md)
 
-#### 7. Launch the browser prototypes
+#### 7. Запустите браузерные прототипы
 
-Serve the local `app/` directory:
+Запустите локальный сервер для каталога `app/`:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Serve-App-Tcp.ps1
 ```
 
-Then open:
+Затем откройте:
 
 - `http://127.0.0.1:8765/`
 - `http://127.0.0.1:8765/speaker.html`
 
-## Validation
+## Проверка проекта
 
-Run the environment preflight:
+Проверка окружения:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-Run repository tests:
+Запуск тестов репозитория:
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
 
-## Release And Packaging
+## Сборка и выпуск
 
-Build-time tooling:
+Установка инструментов сборки:
 
 ```powershell
 pip install .[build]
 ```
 
-Release build:
+Сборка выпуска:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-The release pipeline:
+Процесс выпуска:
 
-- runs repository tests,
-- builds a PyInstaller one-folder bundle,
-- assembles a portable Windows release layout,
-- creates a versioned portable zip,
-- builds an Inno Setup installer when `ISCC.exe` is available,
-- publishes tagged releases through `.github/workflows/release.yml`.
+- запускает тесты репозитория;
+- собирает приложение PyInstaller в формате one-folder;
+- формирует переносимую структуру Windows-приложения;
+- создаёт версионный portable-архив;
+- собирает установщик Inno Setup, если доступен `ISCC.exe`;
+- публикует выпуски по тегам через `.github/workflows/release.yml`.
 
-Typical outputs:
+Основные результаты сборки:
 
 - `release/portable/OPERATOR_ASSIST`
 - `release/publish/OPERATOR_ASSIST-portable-<version>.zip`
 - `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
 - `release/publish/SHA256SUMS.txt`
 
-## Engineering Notes
+## Инженерные решения
 
-### Local STT instead of cloud STT
+### Локальное распознавание вместо облачного
 
-The main workflow is optimized for privacy, latency, and independence from external API quotas.
+Основной сценарий оптимизирован для конфиденциальности, предсказуемой задержки и независимости от квот внешних API.
 
-### Layered runtime instead of one monolithic script
+### Модульная среда вместо одного монолитного скрипта
 
-The repository evolved toward:
+Репозиторий разделён на:
 
-- a shared runtime package,
-- a Windows loopback-aware desktop wrapper,
-- an IT terminology wrapper,
-- an isolated Chrome handoff experiment.
+- общий пакет рабочего приложения;
+- настольную оболочку с поддержкой Windows loopback;
+- слой обработки ИТ-терминологии;
+- изолированный эксперимент интеграции с Chrome.
 
-That split keeps the stable transcription path separate from workflow experiments.
+Такое разделение не смешивает стабильный путь распознавания с экспериментальными сценариями.
 
-### Deterministic terminology normalization
+### Детерминированная нормализация терминологии
 
-For support and interview-style technical conversations, common-domain correction can deliver more value than swapping recognizers. IT mode is implemented as a controlled post-processing layer rather than hidden prompt logic.
+В технической поддержке и собеседованиях коррекция типичных отраслевых терминов иногда полезнее замены распознавателя. ИТ-режим реализован как управляемый слой постобработки, а не как скрытая логика подсказок.
 
-### Practical Windows portability
+### Практичная переносимость в Windows
 
-Some loopback dependencies are vendored because the Windows audio path is one of the least predictable parts of the setup. This is an explicit trade-off in favor of reproducible local behavior.
+Часть зависимостей loopback хранится в репозитории, поскольку аудиомаршрутизация Windows является одной из самых непредсказуемых частей установки. Это осознанный выбор в пользу воспроизводимого локального поведения.
 
-## Current Constraints
+## Текущие ограничения
 
-- Primary desktop workflow is Windows-first.
-- Vosk and Whisper model data are external runtime assets and are not bundled in git or releases.
-- The Chrome bridge is optional and experimental.
-- Automated checks cover deterministic logic and repository contracts, not real audio fixtures.
-- Windows binaries are unsigned, so SmartScreen warnings are still possible on fresh machines.
+- Основной настольный сценарий предназначен для Windows.
+- Данные моделей Vosk и Whisper являются внешними ресурсами и не включаются в Git или выпуски.
+- Интеграция с Chrome является дополнительной и экспериментальной.
+- Автоматические проверки охватывают детерминированную логику и контракты репозитория, но не реальные аудиозаписи.
+- Исполняемые файлы Windows не имеют цифровой подписи, поэтому на новых компьютерах возможно предупреждение SmartScreen.
 
-## Documentation Map
+## Документация
 
 - [docs/architecture.md](docs/architecture.md)
 - [docs/case-study.md](docs/case-study.md)
