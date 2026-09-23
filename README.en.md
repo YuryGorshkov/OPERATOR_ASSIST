@@ -318,4 +318,5 @@ Some loopback dependencies are vendored because the Windows audio path is one of
 - [docs/install-from-git.en.md](docs/install-from-git.en.md)
 - [docs/install-from-release.en.md](docs/install-from-release.en.md)
 - [docs/known-issues.en.md](docs/known-issues.en.md)
+- [docs/recognition-lab.en.md](docs/recognition-lab.en.md)
 - [docs/smoke-checklist.en.md](docs/smoke-checklist.en.md)

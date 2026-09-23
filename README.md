@@ -311,4 +311,5 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 - [docs/install-from-git.md](docs/install-from-git.md)
 - [docs/install-from-release.md](docs/install-from-release.md)
 - [docs/known-issues.md](docs/known-issues.md)
+- [docs/recognition-lab.md](docs/recognition-lab.md)
 - [docs/smoke-checklist.md](docs/smoke-checklist.md)
