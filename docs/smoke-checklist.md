@@ -1,61 +1,63 @@
-# Smoke Checklist For Another PC
+# Проверка на другом компьютере
 
-Use this checklist when testing a packaged release on a different Windows machine.
+**Русский** | [English](smoke-checklist.en.md)
 
-## Before Launch
+Используйте этот список при проверке готового выпуска на другом компьютере Windows.
 
-- Download the latest release asset.
-- Confirm one supported Vosk model is already available.
-- Confirm the target machine has a microphone.
-- Confirm the machine exposes either `WASAPI loopback` or a usable fallback like `Stereo Mix`.
+## До запуска
 
-## Install Or Extract
+- Скачайте файлы последнего выпуска.
+- Подготовьте одну из поддерживаемых моделей Vosk.
+- Убедитесь, что на целевом компьютере есть микрофон.
+- Убедитесь, что доступен `WASAPI loopback` или рабочий резервный источник, например `Stereo Mix`.
 
-- Run `OPERATOR_ASSIST-Setup-<version>.exe` or extract `OPERATOR_ASSIST-portable-<version>.zip`.
-- Open the installed or extracted app folder.
-- Check that `data/models/`, `data/logs/`, and `data/transcripts/` exist or can be created.
+## Установка или распаковка
 
-## First Start
+- Запустите `OPERATOR_ASSIST-Setup-<version>.exe` или распакуйте `OPERATOR_ASSIST-portable-<version>.zip`.
+- Откройте установленный или распакованный каталог приложения.
+- Убедитесь, что каталоги `data/models/`, `data/logs/` и `data/transcripts/` существуют или могут быть созданы.
 
-- Launch `OPERATOR_ASSIST`.
-- Confirm the app opens without a crash.
-- Confirm the readiness block is visible.
-- If no model is detected, place the model in `data/models/` and click `Проверить снова`.
+## Первый запуск
 
-## Device Selection
+- Запустите `OPERATOR_ASSIST`.
+- Убедитесь, что приложение открылось без сбоя.
+- Убедитесь, что отображается блок готовности.
+- Если модель не обнаружена, поместите её в `data/models/` и нажмите `Проверить снова`.
 
-- Confirm the operator microphone appears in the left device selector.
-- Confirm the caller or system-audio source appears in the right selector.
-- Confirm the audio diagnostics block shows readable source summaries.
+## Выбор устройств
 
-## Live Signal Check
+- Убедитесь, что микрофон оператора отображается в левом списке устройств.
+- Убедитесь, что источник собеседника или системного звука отображается в правом списке.
+- Проверьте, что блок диагностики показывает понятные сведения об обоих источниках.
 
-- Press `Старт`.
-- Speak one short phrase into the operator microphone.
-- Confirm the left level meter moves and the left transcript updates.
-- Feed one short phrase into the caller/system-audio path.
-- Confirm the right level meter moves and the right transcript updates.
+## Проверка сигнала
 
-## Negative Checks
+- Нажмите `Старт`.
+- Произнесите короткую фразу в микрофон оператора.
+- Убедитесь, что левый индикатор реагирует и левая расшифровка обновляется.
+- Передайте короткую фразу в канал собеседника или системного звука.
+- Убедитесь, что правый индикатор реагирует и правая расшифровка обновляется.
 
-- Temporarily mute the microphone and confirm the diagnostics hint becomes more explicit.
-- Temporarily select a wrong caller source and confirm the right side stays empty with a useful hint.
-- If both panes capture the same phrase, confirm the overlap warning appears.
+## Негативные проверки
 
-## Output Checks
+- Временно отключите микрофон и убедитесь, что диагностическая подсказка стала явной.
+- Временно выберите неправильный источник собеседника и убедитесь, что правая панель остаётся пустой и показывает полезную подсказку.
+- Если обе панели захватили одну фразу, убедитесь, что появилось предупреждение о пересечении каналов.
 
-- Use `Копировать собеседника`.
-- Use `Копировать всё`.
-- Save one transcript as TXT.
-- Open the logs folder.
+## Проверка результатов
 
-## Pass Criteria
+- Нажмите `Копировать собеседника`.
+- Нажмите `Копировать всё`.
+- Сохраните одну расшифровку в TXT.
+- Откройте каталог журналов.
 
-Treat the smoke test as successful when:
+## Критерии прохождения
 
-- the app launches,
-- the model loads,
-- both channels can be selected,
-- both channels show independent signal during a short test,
-- transcript export and log access work,
-- diagnostics remain understandable when routing is wrong.
+Проверка считается успешной, если:
+
+- приложение запускается;
+- модель загружается;
+- доступны оба канала;
+- оба канала независимо показывают сигнал во время короткого теста;
+- экспорт текста и открытие журналов работают;
+- диагностика остаётся понятной даже при неправильной маршрутизации.

@@ -1,93 +1,95 @@
-# OPERATOR_ASSIST Case Study
+# Кейс OPERATOR_ASSIST
 
-## Problem
+**Русский** | [English](case-study.en.md)
 
-Standard speech-to-text tools work reasonably well when there is one speaker, one microphone, and no workflow pressure.
+## Проблема
 
-Operator workflows are messier:
+Обычные инструменты распознавания речи работают приемлемо, когда есть один говорящий, один микрофон и нет требований к рабочему процессу.
 
-- the operator speaks into a headset microphone,
-- the caller arrives through a different audio path,
-- both streams are valuable,
-- the text needs to be structured quickly enough to support live work,
-- generic STT output often fails on domain terms.
+В работе оператора всё сложнее:
 
-`OPERATOR_ASSIST` was built around that more realistic operating environment.
+- оператор говорит в микрофон гарнитуры;
+- речь собеседника поступает через другой аудиомаршрут;
+- важны оба потока;
+- текст должен формироваться достаточно быстро для использования во время разговора;
+- универсальное распознавание часто ошибается в профессиональных терминах.
 
-## Product Goal
+`OPERATOR_ASSIST` создавался именно для такой реальной рабочей среды.
 
-Create a Windows-first tool that can:
+## Цель продукта
 
-1. separate operator and caller audio as much as the local machine allows,
-2. transcribe both streams in near real time,
-3. preserve privacy and low latency through local speech recognition,
-4. help transform transcript output into something immediately reusable.
+Создать Windows-приложение, которое может:
 
-## Constraints
+1. разделять звук оператора и собеседника настолько, насколько это позволяет локальная конфигурация;
+2. расшифровывать оба потока с небольшой задержкой;
+3. сохранять конфиденциальность и предсказуемость благодаря локальному распознаванию;
+4. преобразовывать расшифровку в контекст, сразу пригодный для дальнейшей работы.
 
-- Windows audio routing differs significantly from machine to machine.
-- Some systems expose WASAPI loopback cleanly; others require Stereo Mix or other fallback inputs.
-- Full offline accuracy on Russian speech is good enough for utility, but not perfect.
-- Browser-based speech recognition is convenient, but less deterministic than a local desktop runtime.
-- The product had to stay practical and iterative rather than waiting for a perfect architecture.
+## Ограничения
 
-## Technical Strategy
+- Маршрутизация звука Windows заметно различается между компьютерами.
+- На одних системах WASAPI loopback работает напрямую, на других требуется Stereo Mix или другой резервный вход.
+- Качество полностью локального распознавания русской речи достаточно для практического применения, но не является идеальным.
+- Браузерное распознавание удобно, но менее предсказуемо, чем локальная настольная среда.
+- Продукт должен был развиваться итеративно и оставаться полезным, а не ждать идеальной архитектуры.
 
-### 1. Local-first core
+## Техническая стратегия
 
-The main workflow uses Vosk locally rather than depending on cloud transcription APIs. That lowers operational friction and makes the tool usable even without online AI services.
+### 1. Локальное ядро
 
-### 2. Layered evolution
+Основной сценарий использует локальные режимы Vosk и Whisper вместо облачных API распознавания. Это снижает эксплуатационные риски и сохраняет работоспособность без внешних ИИ-сервисов.
 
-Instead of rewriting the whole application for every experiment, the code evolved through wrappers:
+### 2. Послойное развитие
 
-- base transcription runtime,
-- loopback-enabled desktop runtime,
-- IT terminology enhancement layer,
-- Chrome bridge experiment.
+Вместо полной переработки приложения для каждого эксперимента код развивался через отдельные слои:
 
-This kept the working path alive while still allowing aggressive iteration.
+- базовая среда распознавания;
+- настольная среда с поддержкой loopback;
+- слой коррекции ИТ-терминологии;
+- экспериментальная интеграция с Chrome.
 
-### 3. Post-recognition correction
+Так рабочий сценарий оставался доступным даже во время активных экспериментов.
 
-Replacing the recognizer was not the first optimization path. A deterministic technical-term layer was added so the tool could better handle developer-support and interview-style vocabulary without pretending the base recognizer was magically domain-aware.
+### 3. Коррекция после распознавания
 
-### 4. Multi-surface product thinking
+Замена распознавателя не стала первым способом оптимизации. В проект добавлен детерминированный слой технических терминов, улучшающий лексику поддержки и собеседований без ложного предположения, что базовая модель уже знает предметную область.
 
-The repository includes both:
+### 4. Несколько интерфейсов продукта
 
-- a serious desktop operator workflow,
-- and lighter browser-based recognition surfaces.
+Репозиторий содержит:
 
-That split is useful because not every scenario needs the same trade-offs.
+- основной настольный сценарий оператора;
+- облегчённые браузерные варианты распознавания.
 
-## Engineering Outcomes
+Такое разделение полезно, потому что разные сценарии требуют разных компромиссов.
 
-From an engineering review perspective, the project shows:
+## Инженерные результаты
 
-- pragmatic architecture under real constraints,
-- handling of ugly platform-specific audio problems,
-- product iteration without discarding working code,
-- explicit trade-off documentation,
-- movement from a script that works for one machine toward a tool another engineer can reason about.
+С точки зрения технического обзора проект демонстрирует:
 
-## What Is Still Imperfect
+- практичную архитектуру в реальных ограничениях;
+- работу со сложной платформенной маршрутизацией звука;
+- развитие продукта без отказа от уже работающего кода;
+- явное описание компромиссов;
+- переход от скрипта для одного компьютера к инструменту, понятному другому инженеру.
 
-- Packaging is now good enough for portable and installer-style distribution, but still not a zero-friction signed Windows release.
-- The desktop runtime is still Windows-first.
-- The Chrome bridge remains experimental.
-- Automated checks exist, but they still focus on deterministic logic and repository contracts rather than real audio fixtures.
-- Accuracy improvements are still mostly dictionary- and workflow-driven rather than model-driven.
+## Что ещё не идеально
 
-## Why The Approach Matters
+- Упаковка уже поддерживает portable-архив и установщик, но выпуск Windows пока не подписан цифровой подписью.
+- Основная настольная среда остаётся ориентированной на Windows.
+- Интеграция с Chrome остаётся экспериментальной.
+- Автоматические проверки охватывают детерминированную логику и контракты репозитория, но ещё не включают полноценный набор реальных аудиозаписей.
+- Улучшение точности по-прежнему основано главным образом на выборе режима, настройке рабочего процесса и словарях, а не на дообучении модели.
 
-This repository is more useful for technical review than a generic template app because the interesting part is not visual polish alone.
+## Почему этот подход важен
 
-The key value is:
+Для технического обзора этот репозиторий полезнее типового шаблонного приложения, потому что его ценность заключается не только во внешнем виде.
 
-- understanding the real problem,
-- choosing the least fragile path under OS constraints,
-- keeping a working system alive while extending it,
-- and being honest about where the engineering is strong versus where it is still evolving.
+Ключевые стороны проекта:
 
-As of August 20, 2026, the project already includes public releases, startup readiness improvements, packaging cleanup, and repository hardening, while still leaving obvious room for production-grade audio regression testing and distribution polish.
+- понимание реальной задачи;
+- выбор наименее хрупкого решения в ограничениях операционной системы;
+- сохранение рабочего продукта во время расширения;
+- честное разделение сильных сторон и областей дальнейшего развития.
+
+По состоянию на 23 сентября 2026 года проект включает публичные выпуски, проверку готовности, переключаемые режимы Vosk и Whisper, инструменты измерения качества распознавания, очищенную упаковку и усиленный репозиторий. При этом остаётся пространство для промышленного набора аудиорегрессий и дальнейшего улучшения распространения.

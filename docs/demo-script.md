@@ -1,88 +1,90 @@
-# Demo Script
+# Сценарий демонстрации
 
-This script is meant for a short technical walkthrough of `OPERATOR_ASSIST` in an interview, architecture review, or live product demo.
+**Русский** | [English](demo-script.en.md)
 
-## What To Open In Advance
+Этот сценарий предназначен для короткого технического показа `OPERATOR_ASSIST` на собеседовании, архитектурном обзоре или презентации продукта.
 
-Before the demo starts, prepare:
+## Что открыть заранее
 
-1. the repository page,
-2. the latest GitHub Release page,
-3. the desktop app with a working local Vosk model,
-4. one short real or synthetic audio scenario for testing.
+Перед демонстрацией подготовьте:
 
-## Five-Minute Walkthrough
+1. страницу репозитория;
+2. страницу последнего GitHub Release;
+3. настольное приложение с рабочей локальной моделью Vosk;
+4. короткий реальный или синтетический пример аудио.
 
-### 1. Position the project in one sentence
+## Пятиминутная демонстрация
 
-Start with:
+### 1. Опишите проект одним предложением
 
-`OPERATOR_ASSIST is a Windows-first dual-stream transcription tool that separates the operator microphone from caller or system audio, adds local Russian speech recognition, and prepares the result for immediate operational use.`
+Начните с формулировки:
 
-### 2. Show the repository surface
+`OPERATOR_ASSIST — Windows-приложение для раздельного распознавания микрофона оператора и речи собеседника или системного звука, локальной расшифровки русской речи и подготовки контекста для дальнейшей работы с ИИ.`
 
-Point out:
+### 2. Покажите репозиторий
 
-- public repo with packaging and release automation,
-- CI status,
-- tagged release artifacts,
-- architecture and deployment docs.
+Обратите внимание на:
 
-This quickly frames the project as more than a raw script.
+- публичный репозиторий со сборкой и автоматизацией выпусков;
+- статус CI;
+- готовые файлы версионных выпусков;
+- документацию по архитектуре и развёртыванию.
 
-### 3. Show the startup-readiness block
+Это сразу показывает, что перед зрителем не одиночный экспериментальный скрипт.
 
-In the app, explain:
+### 3. Покажите блок готовности
 
-- model detection,
-- microphone selection,
-- caller/system-audio selection,
-- saved settings awareness.
+В приложении объясните:
 
-This is a strong product-quality moment because it shows that the app guides first launch instead of failing silently.
+- обнаружение модели;
+- выбор микрофона;
+- выбор канала собеседника или системного звука;
+- сохранение настроек.
 
-### 4. Show the audio diagnostics block
+Этот блок демонстрирует качество продукта: приложение помогает пройти первый запуск, а не завершается с непонятной ошибкой.
 
-Point out:
+### 4. Покажите диагностику звука
 
-- separate source summaries for both channels,
-- live level meters,
-- explicit hints when one side has no signal,
-- overlap warning when channels appear to capture the same speech.
+Обратите внимание на:
 
-This is the best moment to explain the hard part of the project: Windows audio routing is inconsistent across machines, so the product has to help the operator debug routing, not just transcribe.
+- отдельное описание источника каждого канала;
+- индикаторы уровня в реальном времени;
+- явные подсказки при отсутствии сигнала;
+- предупреждение, если оба канала захватывают одну и ту же речь.
 
-### 5. Run one short transcription test
+Здесь удобно объяснить наиболее сложную часть проекта: маршрутизация звука Windows различается между компьютерами, поэтому приложение должно помогать оператору находить источник, а не только распознавать речь.
 
-Use one controlled example:
+### 5. Выполните короткий тест
 
-- say a short phrase into the microphone,
-- play or route one short phrase into the caller/system-audio channel,
-- show that the panes update independently,
-- copy or save the output.
+Используйте контролируемый пример:
 
-If the Chrome bridge is shown, present it as optional workflow automation, not the core product promise.
+- произнесите короткую фразу в микрофон;
+- воспроизведите короткую фразу в канале собеседника или системного звука;
+- покажите независимое обновление двух панелей;
+- скопируйте или сохраните результат.
 
-## What To Emphasize
+Если демонстрируется интеграция с Chrome, представляйте её как дополнительную автоматизацию рабочего процесса, а не как основную функцию продукта.
 
-For a senior-level presentation, emphasize:
+## Что подчеркнуть
 
-- real Windows audio engineering instead of a toy CRUD problem,
-- practical productization: readiness checks, logs, packaging, releases,
-- controlled scope: stable workflow separated from experiments,
-- honest trade-offs: local models stay external, unsigned Windows binaries still warn on some machines.
+Для презентации уровня senior важно показать:
 
-## What Not To Oversell
+- реальную работу со звуком Windows вместо учебной CRUD-задачи;
+- доведение до продукта: проверки готовности, журналы, упаковку и выпуски;
+- контролируемую область ответственности: стабильный сценарий отделён от экспериментов;
+- честные компромиссы: локальные модели устанавливаются отдельно, а неподписанные файлы Windows могут вызывать предупреждение.
 
-Avoid presenting the project as:
+## Что не следует преувеличивать
 
-- perfect AI,
-- production-grade diarization,
-- cloud-scale speech platform,
-- final enterprise support stack.
+Не стоит представлять проект как:
 
-The strongest positioning is:
+- безошибочный ИИ;
+- промышленную диаризацию;
+- облачную речевую платформу;
+- полностью завершённую корпоративную систему поддержки.
 
-- desktop workflow engineering,
-- Windows capture and routing problem-solving,
-- iterative hardening from prototype toward product.
+Наиболее сильное позиционирование:
+
+- проектирование рабочего настольного процесса;
+- решение проблем захвата и маршрутизации звука Windows;
+- последовательное усиление прототипа до состояния продукта.

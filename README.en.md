@@ -99,7 +99,7 @@ multi-voice development corpus and replayed against a captured control session.
 That evidence supports this runtime choice but is not a general accuracy guarantee.
 No fine-tuning has been performed. Private recordings, reference books, reports
 and checkpoints remain local and are excluded from Git.
-See [docs/recognition-lab.md](docs/recognition-lab.md) for the workflow and limitations.
+See [docs/recognition-lab.en.md](docs/recognition-lab.en.md) for the workflow and limitations.
 
 ## Runtime Surfaces
 
@@ -311,11 +311,11 @@ Some loopback dependencies are vendored because the Windows audio path is one of
 ## Documentation Map
 
 - [docs/architecture.en.md](docs/architecture.en.md)
-- [docs/case-study.md](docs/case-study.md)
-- [docs/demo-script.md](docs/demo-script.md)
+- [docs/case-study.en.md](docs/case-study.en.md)
+- [docs/demo-script.en.md](docs/demo-script.en.md)
 - [docs/deployment.en.md](docs/deployment.en.md)
 - [docs/first-launch.en.md](docs/first-launch.en.md)
 - [docs/install-from-git.en.md](docs/install-from-git.en.md)
 - [docs/install-from-release.en.md](docs/install-from-release.en.md)
 - [docs/known-issues.en.md](docs/known-issues.en.md)
-- [docs/smoke-checklist.md](docs/smoke-checklist.md)
+- [docs/smoke-checklist.en.md](docs/smoke-checklist.en.md)

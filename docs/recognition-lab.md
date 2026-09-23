@@ -1,40 +1,30 @@
-# Recognition Quality Lab
+# Лаборатория качества распознавания
 
-Offline, opt-in developer tooling for measuring changes before applying them to
-the desktop application. It is not imported by the desktop UI and does not
-change the installed application or its saved settings.
+**Русский** | [English](recognition-lab.en.md)
 
-## Current Status
+Дополнительные офлайн-инструменты разработчика для измерения изменений до их переноса в настольное приложение. Лаборатория не импортируется интерфейсом, не изменяет установленное приложение и не затрагивает его сохранённые настройки.
 
-Implemented: paired-data validation, nine comparison profiles, offline replay,
-metrics, local audio conversion and verified-pair export.
+## Текущее состояние
 
-Not yet completed: verified real-audio benchmark, overlap-based segmentation,
-live latency tests, model fine-tuning and deployment of a trained model.
-Unit tests validate the tooling, not recognition quality. No measured accuracy
-gain is claimed until a held-out evaluation supports it.
+Реализованы: проверка парных данных, 19 профилей сравнения, офлайн- и realtime-воспроизведение, метрики, локальное преобразование аудио, экспорт проверенных пар и сегментация по паузам с распределением пересечений по временным меткам.
 
-## Safe Workflow
+Пока не завершены: расширенный закрытый тест на реальном аудио, автоматизированные замеры задержки на живых устройствах, дообучение модели и развёртывание обученной версии. Модульные тесты проверяют инструменты, а не качество распознавания. Улучшение точности нельзя считать доказанным без оценки на отложенной выборке.
 
-1. Preserve the current installer, settings and source revision before experiments.
-2. Select authorized recordings and matching text. A book's text and its recording
-   may have different usage terms; retain source and permission metadata.
-3. Import an authorized local file or separately obtain a digital output recording.
-   These tools do not capture microphones or system audio. Playback alone does
-   not train the model, and no hidden background recording is enabled.
-4. Convert a copy to mono PCM16 WAV at 16000 Hz, keeping the original unchanged.
-5. Match time intervals to the words actually spoken. Correct skipped passages,
-   actor deviations, introductions, abridged editions and other mismatches.
-6. Mark transcripts verified only after checking the audio/text correspondence.
-7. Tune on `dev`; reserve `test` for evaluation after profile selection.
-8. Export verified pairs for a later, separate fine-tuning experiment.
-9. Compare baseline, tuned and trained variants on held-out books, voices and
-   conversational speech before modifying the desktop runtime.
+## Безопасный процесс работы
 
-## Data Layout
+1. Перед экспериментами сохраните текущий установщик, настройки и ревизию исходного кода.
+2. Используйте только разрешённые записи и соответствующий текст. Текст книги и её аудиозапись могут иметь разные условия использования; сохраняйте сведения об источнике и разрешении.
+3. Импортируйте разрешённый локальный файл или отдельно получите цифровую запись выходного звука. Инструменты лаборатории не записывают микрофон или системный звук. Простое воспроизведение ничего не обучает, скрытая фоновая запись отсутствует.
+4. Преобразуйте копию в монофонический WAV PCM16 с частотой 16000 Гц, не изменяя оригинал.
+5. Сопоставляйте временные интервалы со словами, которые действительно произнесены. Исправляйте пропущенные фрагменты, изменения актёра, вступления, сокращённые издания и другие расхождения.
+6. Помечайте расшифровку проверенной только после прослушивания и сверки с текстом.
+7. Настраивайте параметры на выборке `dev`, а `test` используйте только после выбора профиля.
+8. Экспортируйте проверенные пары для отдельного будущего эксперимента по дообучению.
+9. Сравнивайте базовый, настроенный и обученный варианты на отложенных книгах, голосах и разговорной речи до изменения рабочего приложения.
 
-Run from the repository root with Python 3.10 and `requirements.txt` installed.
-Keep local assets under ignored directories:
+## Структура данных
+
+Запускайте команды из корня репозитория под Python 3.10 с установленным `requirements.txt`. Локальные данные храните в исключённых из Git каталогах:
 
 ```text
 asr-lab-data/
@@ -46,30 +36,24 @@ asr-lab-reports/
 asr-lab-checkpoints/
 ```
 
-The manifest template is `examples/recognition-lab/manifest.template.jsonl`.
-It is deliberately unverified and references nonexistent sample files; it is
-not an evaluation corpus. Audio and text-file paths resolve relative to the
-manifest. Each nonempty line is a JSON object with:
+Шаблон манифеста находится в `examples/recognition-lab/manifest.template.jsonl`. Он намеренно не помечен проверенным и ссылается на несуществующие примеры, поэтому не является корпусом для оценки. Пути к аудио и тексту вычисляются относительно манифеста. Каждая непустая строка является объектом JSON:
 
-| Field | Meaning |
+| Поле | Назначение |
 | --- | --- |
-| `id` | Unique sample identifier |
-| `audio` | Local mono PCM16/16000 Hz WAV |
-| `text` or `text_file` | Exactly one verbatim reference; empty text allows silence tests |
-| `start`, `end` | Audio interval in seconds; omitted end means the file duration |
-| `split` | `train`, `dev` or `test` |
-| `book_id`, `passage_id` | Stable passage identity shared across alternate readings |
-| `speaker_id` | Narrator identifier |
-| `critical_terms` | Optional terms/names/numbers to track as occurrence coverage |
-| `license` | Source and permission notes, not an automatic license determination |
-| `verified` | Must be boolean `true` after human checking |
+| `id` | Уникальный идентификатор образца |
+| `audio` | Локальный монофонический WAV PCM16/16000 Гц |
+| `text` или `text_file` | Одна дословная эталонная расшифровка; пустой текст допускается для проверки тишины |
+| `start`, `end` | Интервал аудио в секундах; отсутствие `end` означает конец файла |
+| `split` | Выборка `train`, `dev` или `test` |
+| `book_id`, `passage_id` | Стабильный идентификатор отрывка для разных вариантов озвучки |
+| `speaker_id` | Идентификатор диктора |
+| `critical_terms` | Необязательные термины, имена и числа для проверки количества вхождений |
+| `license` | Сведения об источнике и разрешении, но не автоматическое определение лицензии |
+| `verified` | После ручной проверки должно иметь логическое значение `true` |
 
-The validator rejects duplicate identifiers, bad formats, invalid intervals,
-unverified transcripts, overlapping audio across splits and alternate readings
-of the same book passage across splits. Shared books/narrators are warned about:
-these sets are not fully unseen-book or unseen-speaker evaluations.
+Валидатор отклоняет повторяющиеся идентификаторы, неверные форматы, некорректные интервалы, непроверенные расшифровки, пересечение одного аудио между выборками и разные озвучки одного книжного отрывка в разных выборках. Общие книги и дикторы отмечаются предупреждением: такие наборы не являются полностью независимой проверкой на незнакомых книгах или голосах.
 
-## Commands
+## Команды
 
 ```powershell
 py -3.10 -X utf8 -B -m asr_lab profiles
@@ -79,57 +63,52 @@ py -3.10 -X utf8 -B -m asr_lab evaluate asr-lab-data/corpus.jsonl --model whispe
 py -3.10 -X utf8 -B -m asr_lab export-training asr-lab-data/corpus.jsonl asr-lab-data/training-001
 ```
 
-`--model` must point to an existing, complete local CTranslate2 Whisper model;
-automatic weight downloads are disabled. `--device cpu` prevents CUDA attempts.
-The default GPU request retains the runtime's CPU fallback, and the actual
-device/compute type is recorded. Closed-test evaluation requires `--allow-test`.
-Output paths must be new: existing audio files and report/export directories
-are never overwritten. Model initialization and synthetic silence warmup are
-timed separately from profile comparisons.
+Параметр `--model` должен указывать на существующую полную локальную модель Whisper в формате CTranslate2; автоматическая загрузка весов отключена. `--device cpu` запрещает попытки использовать CUDA. Запрос GPU по умолчанию сохраняет резервный переход рабочего приложения на CPU, а фактически выбранные устройство и тип вычислений записываются в отчёт.
 
-## Comparison Profiles
+Для оценки на закрытой выборке требуется `--allow-test`. Выходные пути должны быть новыми: существующие аудиофайлы, каталоги отчётов и экспорта никогда не перезаписываются. Инициализация модели и синтетический прогрев тишиной измеряются отдельно от сравнения профилей.
 
-`baseline` preserves the historical fixed-window control: 250 ms replay blocks,
-a 6-second buffer, 0.7-second minimum gap segment, speaker preprocessing and prior
-text. `production_pause` uses the current desktop engine: original PCM, pause-aware
-segmentation, timestamp-owned overlap, beam width 8 and decoder-based non-speech
-rejection. Lab-only pause beam profiles retain widths 5 and 10 as controls.
-Other profiles change one factor from the fixed-window control:
+## Профили сравнения
 
-- `context_off`: disable internal and externally supplied previous-text context.
-- `raw_context`: reuse pre-correction text rather than dictionary-normalized output.
-- `term_hints`: provide a separate topic-specific `--hotwords-file` to Whisper.
-- `preserve_short`: lower the minimum gap segment to 0.2 seconds.
-- `longer_chunks`: increase continuous buffering to 8 seconds.
-- `vad_700ms`: increase Whisper's VAD silence parameter to 700 ms.
-- `beam_3`: compare beam size 3 against baseline 5.
-- `audio_bypass`: bypass the existing speaker preprocessor.
+`baseline` сохраняет исторический контрольный режим с фиксированными окнами: блоки воспроизведения по 250 мс, буфер 6 секунд, минимальный сегмент паузы 0,7 секунды, предварительная обработка канала собеседника и контекст предыдущего текста.
 
-Reference text is never used as a recognition hint. Term hints bias decoding;
-they do not force Marvel to become Laravel. IT post-corrections are independently
-controlled by `--it-mode`. The default is off.
+`production_pause` повторяет текущий рабочий движок: исходный PCM, сегментация по паузам, распределение пересечений по временным меткам, ширина beam search 8 и отсев неречевых фрагментов декодером.
 
-## Reports And Limitations
+Профили пауз изменяют по одному параметру рабочего движка:
 
-Each run saves `run.json`, incremental `samples.jsonl`, `summary.json` and
-`benchmark.log`. Reports retain dependency versions, corpus/audio/model/source
-hashes, effective options, fallback details, raw output and errors. Failed
-samples make the run unsuccessful and are counted rather than hidden.
-Training exports have a completion/error marker and do not start training.
+- `pause_preview_off` — отключает предварительный быстрый результат;
+- `pause_initial_6` — увеличивает первое принудительное завершение до 6 секунд;
+- `pause_initial_8` — увеличивает первое принудительное завершение до 8 секунд;
+- `pause_flush_16` — увеличивает принудительное завершение длинной реплики до 16 секунд;
+- `pause_overlap_1_5` — увеличивает пересечение сегментов до 1,5 секунды;
+- `pause_guard_0_9` — расширяет защиту границы до 0,9 секунды;
+- `pause_ms_450` — уменьшает основную паузу до 450 мс;
+- `pause_beam_5` — использует ширину beam search 5;
+- `pause_beam_10` — использует ширину beam search 10.
 
-WER/CER aggregate edit counts across the corpus rather than averaging fragment
-rates. Normalization uses NFKC, case folding, Russian yo/e equivalence and
-punctuation tokenization; C++ and C# remain distinct. CER includes spaces.
-No phonetic replacement is applied to reference text to hide acronym errors.
-Silence hallucinations are counted as insertions even with zero reference words.
+Остальные профили меняют один фактор относительно контроля с фиксированными окнами:
 
-## Real-time latency replay
+- `context_off` — отключает внутренний и внешний контекст предыдущего текста;
+- `raw_context` — повторно использует текст до словарных исправлений;
+- `term_hints` — передаёт Whisper отдельный тематический файл `--hotwords-file`;
+- `preserve_short` — уменьшает минимальный сегмент паузы до 0,2 секунды;
+- `longer_chunks` — увеличивает непрерывный буфер до 8 секунд;
+- `vad_700ms` — увеличивает параметр тишины VAD до 700 мс;
+- `beam_3` — сравнивает ширину beam search 3 с базовым значением 5;
+- `audio_bypass` — отключает существующую предварительную обработку канала собеседника.
 
-The `realtime` command feeds verified PCM to the production recognizer every
-250 ms on an independent producer thread. A separate consumer performs model
-inference while UI events are collected at the desktop application's 120 ms
-polling interval. The report includes WER/CER, queue drops, queue depth,
-per-speaker results, p50/p95 delivery latency, and review-only error candidates.
+Эталонный текст никогда не используется как подсказка распознавателю. Тематические подсказки влияют на декодирование, но не заставляют модель превращать Marvel в Laravel. ИТ-коррекции независимо управляются параметром `--it-mode`; по умолчанию он выключен.
+
+## Отчёты и ограничения
+
+Каждый запуск сохраняет `run.json`, дополняемый `samples.jsonl`, `summary.json` и `benchmark.log`. В отчётах фиксируются версии зависимостей, хэши корпуса, аудио, модели и исходного кода, фактические параметры, сведения о резервном переключении, необработанный результат и ошибки. Неудачные образцы учитываются и делают запуск неуспешным, а не скрываются. Экспорт обучающих данных получает отметку завершения или ошибки, но не запускает обучение.
+
+WER и CER рассчитываются по суммарному числу исправлений во всём корпусе, а не как среднее значение по фрагментам. Нормализация использует NFKC, приведение регистра, эквивалентность русских «ё» и «е» и токенизацию пунктуации; C++ и C# остаются разными. CER учитывает пробелы. К эталонному тексту не применяются фонетические замены, скрывающие ошибки аббревиатур. Галлюцинации на тишине считаются вставками даже при отсутствии эталонных слов.
+
+## Воспроизведение задержки в реальном времени
+
+Команда `realtime` передаёт проверенный PCM рабочему распознавателю каждые 250 мс из независимого потока-производителя. Отдельный потребитель выполняет вывод модели, а события интерфейса собираются с тем же интервалом опроса 120 мс, который использует настольное приложение.
+
+Отчёт включает WER/CER, отброшенные блоки, глубину очереди, результаты по дикторам, p50/p95 задержки доставки и кандидаты ошибок для ручной проверки.
 
 ```powershell
 py -3.10 -m asr_lab realtime data\manifests\verified.jsonl `
@@ -140,17 +119,10 @@ py -3.10 -m asr_lab realtime data\manifests\verified.jsonl `
   --output E:\OPERATOR_ASSIST_LAB\tmp\realtime-run
 ```
 
-Output directories are never overwritten. `error-candidates.json` never edits
-the application dictionary; each proposed replacement requires human review.
-Term coverage counts expected, recognized and extra mentions, not contextual
-semantic correctness; critical errors still require review.
+Выходные каталоги никогда не перезаписываются. `error-candidates.json` не изменяет словарь приложения; каждая предлагаемая замена требует проверки человеком. Покрытие терминов считает ожидаемые, распознанные и лишние упоминания, но не оценивает смысловую корректность в контексте. Критичные ошибки по-прежнему требуют ручного анализа.
 
-RTF and first-result buffer time describe offline replay, not live GUI startup,
-queue drops, p95 end-to-end latency or device routing. Those require separate
-live tests. More narration data does not guarantee improvement on spontaneous
-calls or IT terminology; include appropriate conversational/technical samples.
-For a fine-tuning pilot, verify GPU resources first, keep training separate,
-retain the original model and evaluate any converted model in the application.
+RTF и время накопления до первого результата характеризуют офлайн-воспроизведение, а не запуск живого интерфейса, потери очереди, p95 сквозной задержки или маршрутизацию устройств. Для этого нужны отдельные проверки на реальной системе.
 
-Do not upload recordings, reference books, reports, local configuration,
-backups or model checkpoints with the source code.
+Увеличение объёма дикторского чтения не гарантирует улучшения на спонтанных звонках или ИТ-терминологии; в корпус необходимо включать соответствующую разговорную и техническую речь. Перед пилотным дообучением сначала проверьте ресурсы GPU, выполняйте обучение отдельно, сохраняйте исходную модель и оценивайте преобразованную модель непосредственно в приложении.
+
+Не загружайте вместе с исходным кодом записи, эталонные книги, отчёты, локальную конфигурацию, резервные копии или контрольные точки моделей.
