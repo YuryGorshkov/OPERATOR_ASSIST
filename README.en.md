@@ -82,7 +82,7 @@ flowchart LR
     Prompt --> Chrome[Experimental Chrome Bridge]
 ```
 
-More detail: [docs/architecture.md](docs/architecture.md)
+More detail: [docs/architecture.en.md](docs/architecture.en.md)
 
 ## Recognition Quality Lab
 
@@ -151,7 +151,7 @@ During longer Whisper utterances, the muted line below the transcript shows a fa
 
 Use the `Словарь` button for names and domain terms the recognizer repeatedly writes incorrectly. Add one exact rule per line in the form `как распознано = как должно быть`; saved rules are reloaded on the next press of `Старт` and do not bias Whisper decoding.
 
-More detail: [docs/install-from-release.md](docs/install-from-release.md)
+More detail: [docs/install-from-release.en.md](docs/install-from-release.en.md)
 
 ### Option B: Run from source
 
@@ -215,8 +215,8 @@ Use the in-app quick actions to:
 
 More detail:
 
-- [docs/first-launch.md](docs/first-launch.md)
-- [docs/install-from-git.md](docs/install-from-git.md)
+- [docs/first-launch.en.md](docs/first-launch.en.md)
+- [docs/install-from-git.en.md](docs/install-from-git.en.md)
 
 #### 7. Launch the browser prototypes
 
@@ -310,12 +310,12 @@ Some loopback dependencies are vendored because the Windows audio path is one of
 
 ## Documentation Map
 
-- [docs/architecture.md](docs/architecture.md)
+- [docs/architecture.en.md](docs/architecture.en.md)
 - [docs/case-study.md](docs/case-study.md)
 - [docs/demo-script.md](docs/demo-script.md)
-- [docs/deployment.md](docs/deployment.md)
-- [docs/first-launch.md](docs/first-launch.md)
-- [docs/install-from-git.md](docs/install-from-git.md)
-- [docs/install-from-release.md](docs/install-from-release.md)
-- [docs/known-issues.md](docs/known-issues.md)
+- [docs/deployment.en.md](docs/deployment.en.md)
+- [docs/first-launch.en.md](docs/first-launch.en.md)
+- [docs/install-from-git.en.md](docs/install-from-git.en.md)
+- [docs/install-from-release.en.md](docs/install-from-release.en.md)
+- [docs/known-issues.en.md](docs/known-issues.en.md)
 - [docs/smoke-checklist.md](docs/smoke-checklist.md)

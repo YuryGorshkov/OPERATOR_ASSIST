@@ -1,169 +1,171 @@
-# OPERATOR_ASSIST Architecture Notes
+# Архитектура OPERATOR_ASSIST
 
-## Design Goal
+**Русский** | [English](architecture.en.md)
 
-`OPERATOR_ASSIST` is not a generic speech-to-text demo. Its design target is a Windows operator workflow where:
+## Цель системы
 
-- one stream is the operator microphone,
-- another stream is the caller or system audio,
-- the transcript needs to be actionable immediately,
-- the workflow may require a human-in-the-loop AI handoff.
+`OPERATOR_ASSIST` — не универсальная демонстрация преобразования речи в текст. Проект ориентирован на рабочий сценарий оператора в Windows, где:
 
-That framing drives the architecture more than raw ML ambition.
+- один поток поступает с микрофона оператора;
+- второй поток содержит речь собеседника или системный звук;
+- расшифровка должна быть сразу пригодна для дальнейшей работы;
+- в процессе может потребоваться контролируемая человеком передача контекста в ИИ.
 
-## Runtime Layers
+Именно этот сценарий, а не абстрактное усложнение модели машинного обучения, определяет архитектуру проекта.
 
-### 1. Base desktop runtime
+## Слои приложения
 
-File: `operator_assist_runtime/base_runtime.py`
+### 1. Базовая настольная среда
 
-Responsibilities:
+Файл: `operator_assist_runtime/base_runtime.py`
 
-- UI queue orchestration
-- background Vosk model loading
-- background Whisper engine loading with CUDA-first fallback planning
-- microphone or input capture through `sounddevice`
-- transcript accumulation
-- duplicate suppression
-- selectable channel routing modes
-- transcript export
-- prompt generation
-- clipboard or Chrome handoff helpers
+Задачи:
 
-This module contains the core `TranscriptionWorker` and `OperatorAssistApp` abstractions.
+- управление очередью событий интерфейса;
+- фоновая загрузка модели Vosk;
+- фоновая загрузка Whisper с предварительным выбором CUDA и резервным переходом;
+- захват микрофона или другого входа через `sounddevice`;
+- накопление расшифровки;
+- удаление дублей;
+- переключение режимов маршрутизации каналов;
+- экспорт текста;
+- формирование запросов;
+- передача через буфер обмена или вспомогательные функции Chrome.
 
-It now delegates smaller cross-cutting concerns to shared helpers under `operator_assist_runtime/`, so the recognition loop and UI orchestration are easier to review independently from text normalization details.
+В этом модуле находятся основные абстракции `TranscriptionWorker` и `OperatorAssistApp`.
 
-It also now contains the startup-readiness flow that checks:
+Небольшие сквозные задачи вынесены в общие модули внутри `operator_assist_runtime/`. Благодаря этому цикл распознавания и управление интерфейсом можно анализировать отдельно от нормализации текста.
 
-- model availability,
-- source selection,
-- saved settings presence,
-- basic start conditions before enabling the main session button.
+Базовая среда также управляет проверкой готовности к запуску:
 
-For compatibility, the old path under `backups/operator_assist_chat_bridge_base.py` is retained as a shim while the repository transitions to the cleaner package layout.
+- наличие модели;
+- выбор источников;
+- наличие сохранённых настроек;
+- выполнение базовых условий перед активацией кнопки запуска сеанса.
 
-### 2. Loopback-enabled Windows runtime
+Для обратной совместимости старый путь `backups/operator_assist_chat_bridge_base.py` сохранён как переходный адаптер к новой структуре пакета.
 
-File: `operator_assist_chat_bridge_v5_base.py`
+### 2. Среда Windows с поддержкой loopback
 
-Responsibilities:
+Файл: `operator_assist_chat_bridge_v5_base.py`
 
-- detect WASAPI-capable output devices,
-- expose loopback capture as a selectable source,
-- fall back to standard recording devices when loopback is unavailable,
-- rebind runtime paths to the current working directory.
+Задачи:
 
-The key point here is that caller or system audio is treated as a first-class input path rather than an afterthought.
+- поиск выходных устройств с поддержкой WASAPI;
+- предоставление loopback-захвата как выбираемого источника;
+- переход к обычным устройствам записи, если loopback недоступен;
+- привязка рабочих путей к текущему каталогу приложения.
 
-### 3. IT terminology wrapper
+Речь собеседника или системный звук здесь является полноценным входным каналом, а не дополнительной возможностью поверх микрофона.
 
-File: `operator_assist.py`
+### 3. Оболочка технической терминологии
 
-Responsibilities:
+Файл: `operator_assist.py`
 
-- activate the IT-mode terminology profile,
-- preserve the base dual-stream transcription UX,
-- layer operator-facing behavior on top of the shared technical-terms service.
+Задачи:
 
-This keeps domain adaptation lightweight: no model retraining, just controlled post-processing.
+- включение профиля технической терминологии;
+- сохранение основного двухканального интерфейса;
+- добавление операторских функций поверх общего сервиса обработки терминов.
 
-### Shared runtime helpers
+Такой подход обеспечивает лёгкую адаптацию к предметной области без переобучения модели: используются только контролируемые правила постобработки.
 
-Files:
+### Общие вспомогательные модули
+
+Файлы:
 
 - `operator_assist_runtime/technical_terms.py`
 - `operator_assist_runtime/text_utils.py`
 
-Responsibilities:
+Задачи:
 
-- centralize technical-term caching and mode resolution,
-- reuse the same normalization service in both the base runtime and the IT wrapper,
-- keep small deterministic text helpers separately testable.
+- централизованное кэширование технических терминов и выбор режима;
+- единый сервис нормализации для базовой среды и ИТ-оболочки;
+- отдельное тестирование небольших детерминированных функций обработки текста.
 
-### 4. Chrome bridge experiment
+### 4. Экспериментальная интеграция с Chrome
 
-File: `operator_assist_chat_window_test.py`
+Файл: `operator_assist_chat_window_test.py`
 
-Responsibilities:
+Задачи:
 
-- construct AI-ready prompts from the speaker transcript,
-- connect to a Chrome instance via remote debugging,
-- inject prompt text into a ChatGPT page.
+- формирование готовых для ИИ запросов из расшифровки собеседника;
+- подключение к экземпляру Chrome через удалённую отладку;
+- вставка текста запроса на страницу ChatGPT.
 
-This is intentionally isolated as an experimental workflow and should not be considered the stable backbone of the project.
+Этот сценарий намеренно изолирован и не считается стабильным ядром проекта.
 
-### 5. Browser prototypes
+### 5. Браузерные прототипы
 
-Files:
+Файлы:
 
 - `app/index.html`
 - `app/app.js`
 - `app/speaker.html`
 - `app/speaker.js`
 
-Responsibilities:
+Задачи:
 
-- quick voice-note capture,
-- quick single-stream speaker transcription,
-- browser-native storage via `localStorage`,
-- Web Speech API-based recognition.
+- быстрое создание голосовых заметок;
+- одноканальное распознавание речи собеседника;
+- хранение данных в браузере через `localStorage`;
+- распознавание на основе Web Speech API.
 
-These prototypes are useful for demonstrating product surface exploration, but they are less controllable than the offline desktop runtime.
+Эти прототипы показывают возможные интерфейсы продукта, но контролируются хуже, чем локальная настольная среда.
 
-## Desktop Audio Pipeline
+## Конвейер захвата звука
 
-### Operator microphone
+### Микрофон оператора
 
-1. Enumerate recording devices through `sounddevice`.
-2. Select a microphone input.
-3. Stream PCM chunks into a recognition worker.
-4. Push recognition events into the UI queue.
+1. Перечислить устройства записи через `sounddevice`.
+2. Выбрать микрофонный вход.
+3. Передавать блоки PCM в рабочий поток распознавания.
+4. Отправлять события распознавания в очередь интерфейса.
 
-### Caller or system audio
+### Собеседник или системный звук
 
-Preferred path:
+Предпочтительный маршрут:
 
-1. Enumerate loopback-capable devices through `soundcard`.
-2. Open WASAPI loopback recorder.
-3. Convert float frames to 16-bit PCM.
-4. Resample when required.
-5. Push chunks into a dedicated recognition worker.
+1. Найти устройства с поддержкой loopback через `soundcard`.
+2. Открыть запись WASAPI loopback.
+3. Преобразовать кадры с плавающей точкой в 16-битный PCM.
+4. При необходимости изменить частоту дискретизации.
+5. Передавать блоки в отдельный рабочий поток распознавания.
 
-Fallback path:
+Резервный маршрут:
 
-1. Use a classic recording input such as Stereo Mix.
-2. Feed it through the standard `sounddevice` worker path.
+1. Использовать классический вход записи, например Stereo Mix.
+2. Передавать его через стандартный рабочий поток `sounddevice`.
 
-This dual-path strategy is important because Windows audio environments vary a lot across machines.
+Два маршрута необходимы, потому что конфигурации звука Windows заметно различаются между компьютерами.
 
-## Recognition and UI Flow
+## Распознавание и обновление интерфейса
 
-1. The model loads in a background thread.
-2. Capture workers push audio chunks into bounded queues.
-3. Recognition workers decode Vosk results incrementally, or buffer the caller channel for selectable Whisper `large-v3` / `large-v3-turbo` decoding.
-4. Long Whisper utterances get one bounded greedy preview before the unchanged beam-search final pass; previews do not advance audio ownership or enter transcript history.
-5. Final and interim results are marshaled back through the UI queue.
-6. The UI updates separate panels for operator and speaker text.
-7. Final speaker text is additionally used as prompt input for AI workflows.
+1. Модель загружается в фоновом потоке.
+2. Потоки захвата помещают блоки аудио в ограниченные очереди.
+3. Рабочие потоки пошагово декодируют результаты Vosk или накапливают канал собеседника для выбранной модели Whisper `large-v3` / `large-v3-turbo`.
+4. Для длинных реплик Whisper выполняется один ограниченный быстрый предварительный проход, после которого неизменённый финальный проход использует beam search. Предварительный текст не изменяет границы владения аудио и не попадает в историю расшифровки.
+5. Предварительные и финальные результаты возвращаются через очередь интерфейса.
+6. Интерфейс обновляет отдельные панели оператора и собеседника.
+7. Финальная речь собеседника дополнительно используется для формирования контекста ИИ.
 
-The queue-based approach prevents the GUI thread from becoming the recognition engine.
+Очереди не позволяют графическому потоку превратиться в движок распознавания и потерять отзывчивость.
 
-## Domain Correction Layer
+## Коррекция терминологии
 
-Technical vocabulary is handled as a deterministic post-processing layer:
+Техническая лексика обрабатывается детерминированным слоем постобработки:
 
-- normalization of case and spacing,
-- global replacement dictionary,
-- optional mode-specific replacements,
-- user-defined exact replacements from `custom_terms.txt`,
-- IT-mode toggle persisted in settings.
+- нормализация регистра и пробелов;
+- общий словарь замен;
+- дополнительные замены выбранного режима;
+- пользовательские точные замены из `custom_terms.txt`;
+- сохранение переключателя ИТ-режима в настройках.
 
-This is a practical design choice: for operator assistance, deterministic correction of common terms can be more valuable than chasing a heavier model.
+Для операторского приложения предсказуемое исправление часто встречающихся терминов может быть полезнее постоянного увеличения модели.
 
-## State and Local Data
+## Состояние и локальные данные
 
-Local runtime artifacts include:
+К локальным данным относятся:
 
 - `operator_assist_settings.json`
 - `technical_terms.json`
@@ -174,35 +176,35 @@ Local runtime artifacts include:
 - `transcripts/`
 - `models/`
 
-Recognition latency is recorded without changing decoder behavior. Runtime logs split each visible speaker update into audio-queue wait, recognition processing, UI dispatch and an estimated speech-end-to-UI delay; final results also report rolling p50, p95 and maximum values for the active session.
+Задержка распознавания измеряется без изменения работы декодера. Журналы разделяют время каждого видимого обновления речи собеседника на ожидание в очереди аудио, обработку распознавателем, передачу в интерфейс и оценку задержки от конца речи до вывода текста. Для финальных результатов также рассчитываются скользящие значения p50, p95 и максимум текущего сеанса.
 
-Only the source-level defaults belong in git. User-specific outputs and large models do not.
+В Git должны находиться только исходные настройки по умолчанию. Пользовательские результаты и крупные модели остаются локальными.
 
-## Key Trade-Offs
+## Ключевые компромиссы
 
-### Why Tkinter?
+### Почему Tkinter
 
-Because the core value of this project is workflow utility, audio routing, and transcription logic, not bleeding-edge desktop rendering. Tkinter keeps the native tool easy to run and easy to modify.
+Основная ценность проекта заключается в рабочем процессе, маршрутизации звука и логике распознавания, а не в сложном рендеринге интерфейса. Tkinter упрощает локальный запуск и изменение настольного инструмента.
 
-### Why keep vendor binaries in-repo?
+### Почему часть зависимостей хранится в репозитории
 
-Because Windows loopback support is one of the most fragile parts of the setup. Vendoring critical pieces improves practical portability at the cost of some repository cleanliness.
+Поддержка Windows loopback является одной из самых нестабильных частей установки. Локальное хранение критичных компонентов повышает практическую переносимость ценой менее компактной структуры репозитория.
 
-### Why keep the model external?
+### Почему модели не включены в Git
 
-Because Vosk models are large runtime assets, change independently from the source tree, and would bloat the repository heavily. The current design chooses a smaller and more reviewable repo over a zero-download first run.
+Модели Vosk и Whisper являются крупными внешними ресурсами, обновляются независимо от исходного кода и значительно увеличили бы репозиторий. Текущая архитектура отдаёт приоритет компактному и удобному для проверки исходному проекту, а не полностью автономному первому запуску.
 
-### Why keep experiments in the same repository?
+### Почему эксперименты находятся в том же репозитории
 
-Because the experimental flows directly exercise the same transcription core and workflow assumptions. Splitting them too early would make iteration slower and hide the product evolution story.
+Экспериментальные сценарии используют то же ядро распознавания и проверяют те же предположения о рабочем процессе. Слишком раннее разделение замедлило бы итерации и скрыло историю развития продукта.
 
-## Production Hardening Priorities
+## Приоритеты дальнейшего усиления
 
-If this were being prepared for broader deployment, the most valuable next moves would be:
+Для более широкого внедрения наиболее полезны следующие шаги:
 
-1. guided model bootstrap or download assistant,
-2. code signing and cleaner Windows trust story,
-3. regression tests on saved audio fixtures,
-4. cleaner module boundaries,
-5. explicit observability around device selection, latency, and recognition quality,
-6. configurable knowledge profiles beyond the current IT dictionary.
+1. мастер загрузки и первоначальной настройки моделей;
+2. цифровая подпись и более прозрачное доверие Windows;
+3. регрессионные тесты на сохранённых аудиозаписях;
+4. дальнейшее разделение ответственности модулей;
+5. расширенная диагностика выбора устройств, задержки и качества распознавания;
+6. настраиваемые профили знаний помимо текущего ИТ-словаря.

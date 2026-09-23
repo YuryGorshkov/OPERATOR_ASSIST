@@ -1,90 +1,90 @@
-# Install From Git Repository
+# Установка из Git-репозитория
 
-This guide is for installing `OPERATOR_ASSIST` directly from the public GitHub repository source code instead of using a packaged release.
+**Русский** | [English](install-from-git.en.md)
 
-## What You Need
+Это руководство предназначено для установки `OPERATOR_ASSIST` напрямую из исходного кода публичного репозитория GitHub вместо готового выпуска.
 
-Before you start:
+## Что потребуется
 
-- Windows 10 or Windows 11
-- Git installed
-- Python `3.10.x` or newer
-- one supported Russian Vosk model prepared separately
+Перед началом подготовьте:
 
-## Clone The Repository
+- Windows 10 или Windows 11;
+- установленный Git;
+- Python `3.10.x` или новее;
+- одну из поддерживаемых русских моделей Vosk.
 
-Open PowerShell or Windows Terminal and run:
+## Клонирование репозитория
+
+Откройте PowerShell или Windows Terminal и выполните:
 
 ```powershell
 git clone https://github.com/YuryGorshkov/OPERATOR_ASSIST.git
 cd OPERATOR_ASSIST
 ```
 
-## Run The Source Setup Script
+## Настройка исходного кода
 
-The repository now includes a bootstrap script that prepares a local virtual environment, installs dependencies, creates runtime folders, and runs a preflight check:
+В репозитории есть установочный скрипт, который создаёт локальное виртуальное окружение, устанавливает зависимости, подготавливает рабочие каталоги и проверяет среду:
 
 ```text
 Setup-From-Git.cmd
 ```
 
-Equivalent PowerShell command:
+Эквивалентная команда PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup-From-Git.ps1
 ```
 
-By default this setup:
+По умолчанию скрипт:
 
-1. locates a usable Python interpreter,
-2. creates `.venv` inside the repository,
-3. installs `requirements.txt`,
-4. ensures `models/`, `logs/`, and `transcripts/` exist,
-5. runs `scripts/Check-Environment.ps1`.
+1. находит подходящий интерпретатор Python;
+2. создаёт `.venv` внутри репозитория;
+3. устанавливает зависимости из `requirements.txt`;
+4. создаёт каталоги `models/`, `logs/` и `transcripts/`;
+5. запускает `scripts/Check-Environment.ps1`.
 
-The default dependency set now also includes the optional high-accuracy speaker path based on `faster-whisper`.
-That means a clean source install is enough to expose the precise mode in the UI; the first precise launch may still
-download the Whisper model itself into `models/whisper-cache`.
+Стандартный набор зависимостей включает точный режим на основе `faster-whisper`. Поэтому после чистой установки режим Whisper уже доступен в интерфейсе, но при первом использовании выбранная модель может дополнительно загрузиться в `models/whisper-cache`.
 
-## Add A Speech Model
+## Добавление модели Vosk
 
-The app still expects a local Russian Vosk model in one of these folders:
+Поместите поддерживаемую русскую модель Vosk в один из каталогов:
 
 - `models/vosk-model-ru-0.42`
 - `models/vosk-model-ru-0.22`
 - `models/vosk-model-small-ru-0.22`
 
-The archive must be extracted as a normal folder, not left as a zip file.
+Модель должна быть распакована в обычный каталог, а не оставлена в ZIP-архиве.
 
-## Start The App
+## Запуск приложения
 
-After setup completes:
+После завершения установки запустите:
 
 ```text
 Run-Operator-Assist.cmd
 ```
 
-The launcher now prefers the project-local `.venv` automatically if it exists, so the source installation stays self-contained.
+Если внутри проекта существует `.venv`, командный файл автоматически использует это окружение. Такая установка остаётся изолированной от остальных проектов Python.
 
-If you choose the precise speaker mode, expect the first model load to be noticeably slower than the normal Vosk path.
+При выборе точного режима первый запуск модели займёт заметно больше времени, чем запуск Vosk.
 
-## If You Want To Re-Check The Environment
+## Повторная проверка среды
 
-Run:
+Выполните:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-## Useful Optional Flags
+## Дополнительные параметры
 
-The source setup script also supports a few optional switches:
+Скрипт установки поддерживает дополнительные параметры:
 
-- `-NoVenv` if you intentionally want to use the current Python environment
-- `-SkipPackageInstall` if dependencies are already installed
-- `-SkipEnvironmentCheck` if you only want the bootstrap step
+- `-NoVenv` — использовать текущее окружение Python вместо создания `.venv`;
+- `-SkipPackageInstall` — не устанавливать уже подготовленные зависимости;
+- `-SkipEnvironmentCheck` — выполнить только первоначальную настройку без проверки среды.
 
-Example:
+Пример:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup-From-Git.ps1 -SkipEnvironmentCheck

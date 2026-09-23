@@ -1,0 +1,210 @@
+# OPERATOR_ASSIST Architecture Notes
+
+[Русский](architecture.md) | **English**
+
+## Design Goal
+
+`OPERATOR_ASSIST` is not a generic speech-to-text demo. Its design target is a Windows operator workflow where:
+
+- one stream is the operator microphone,
+- another stream is the caller or system audio,
+- the transcript needs to be actionable immediately,
+- the workflow may require a human-in-the-loop AI handoff.
+
+That framing drives the architecture more than raw ML ambition.
+
+## Runtime Layers
+
+### 1. Base desktop runtime
+
+File: `operator_assist_runtime/base_runtime.py`
+
+Responsibilities:
+
+- UI queue orchestration
+- background Vosk model loading
+- background Whisper engine loading with CUDA-first fallback planning
+- microphone or input capture through `sounddevice`
+- transcript accumulation
+- duplicate suppression
+- selectable channel routing modes
+- transcript export
+- prompt generation
+- clipboard or Chrome handoff helpers
+
+This module contains the core `TranscriptionWorker` and `OperatorAssistApp` abstractions.
+
+It now delegates smaller cross-cutting concerns to shared helpers under `operator_assist_runtime/`, so the recognition loop and UI orchestration are easier to review independently from text normalization details.
+
+It also now contains the startup-readiness flow that checks:
+
+- model availability,
+- source selection,
+- saved settings presence,
+- basic start conditions before enabling the main session button.
+
+For compatibility, the old path under `backups/operator_assist_chat_bridge_base.py` is retained as a shim while the repository transitions to the cleaner package layout.
+
+### 2. Loopback-enabled Windows runtime
+
+File: `operator_assist_chat_bridge_v5_base.py`
+
+Responsibilities:
+
+- detect WASAPI-capable output devices,
+- expose loopback capture as a selectable source,
+- fall back to standard recording devices when loopback is unavailable,
+- rebind runtime paths to the current working directory.
+
+The key point here is that caller or system audio is treated as a first-class input path rather than an afterthought.
+
+### 3. IT terminology wrapper
+
+File: `operator_assist.py`
+
+Responsibilities:
+
+- activate the IT-mode terminology profile,
+- preserve the base dual-stream transcription UX,
+- layer operator-facing behavior on top of the shared technical-terms service.
+
+This keeps domain adaptation lightweight: no model retraining, just controlled post-processing.
+
+### Shared runtime helpers
+
+Files:
+
+- `operator_assist_runtime/technical_terms.py`
+- `operator_assist_runtime/text_utils.py`
+
+Responsibilities:
+
+- centralize technical-term caching and mode resolution,
+- reuse the same normalization service in both the base runtime and the IT wrapper,
+- keep small deterministic text helpers separately testable.
+
+### 4. Chrome bridge experiment
+
+File: `operator_assist_chat_window_test.py`
+
+Responsibilities:
+
+- construct AI-ready prompts from the speaker transcript,
+- connect to a Chrome instance via remote debugging,
+- inject prompt text into a ChatGPT page.
+
+This is intentionally isolated as an experimental workflow and should not be considered the stable backbone of the project.
+
+### 5. Browser prototypes
+
+Files:
+
+- `app/index.html`
+- `app/app.js`
+- `app/speaker.html`
+- `app/speaker.js`
+
+Responsibilities:
+
+- quick voice-note capture,
+- quick single-stream speaker transcription,
+- browser-native storage via `localStorage`,
+- Web Speech API-based recognition.
+
+These prototypes are useful for demonstrating product surface exploration, but they are less controllable than the offline desktop runtime.
+
+## Desktop Audio Pipeline
+
+### Operator microphone
+
+1. Enumerate recording devices through `sounddevice`.
+2. Select a microphone input.
+3. Stream PCM chunks into a recognition worker.
+4. Push recognition events into the UI queue.
+
+### Caller or system audio
+
+Preferred path:
+
+1. Enumerate loopback-capable devices through `soundcard`.
+2. Open WASAPI loopback recorder.
+3. Convert float frames to 16-bit PCM.
+4. Resample when required.
+5. Push chunks into a dedicated recognition worker.
+
+Fallback path:
+
+1. Use a classic recording input such as Stereo Mix.
+2. Feed it through the standard `sounddevice` worker path.
+
+This dual-path strategy is important because Windows audio environments vary a lot across machines.
+
+## Recognition and UI Flow
+
+1. The model loads in a background thread.
+2. Capture workers push audio chunks into bounded queues.
+3. Recognition workers decode Vosk results incrementally, or buffer the caller channel for selectable Whisper `large-v3` / `large-v3-turbo` decoding.
+4. Long Whisper utterances get one bounded greedy preview before the unchanged beam-search final pass; previews do not advance audio ownership or enter transcript history.
+5. Final and interim results are marshaled back through the UI queue.
+6. The UI updates separate panels for operator and speaker text.
+7. Final speaker text is additionally used as prompt input for AI workflows.
+
+The queue-based approach prevents the GUI thread from becoming the recognition engine.
+
+## Domain Correction Layer
+
+Technical vocabulary is handled as a deterministic post-processing layer:
+
+- normalization of case and spacing,
+- global replacement dictionary,
+- optional mode-specific replacements,
+- user-defined exact replacements from `custom_terms.txt`,
+- IT-mode toggle persisted in settings.
+
+This is a practical design choice: for operator assistance, deterministic correction of common terms can be more valuable than chasing a heavier model.
+
+## State and Local Data
+
+Local runtime artifacts include:
+
+- `operator_assist_settings.json`
+- `technical_terms.json`
+- `custom_terms.txt`
+- `chatgpt_prompt_template.txt`
+- `assets/`
+- `logs/`
+- `transcripts/`
+- `models/`
+
+Recognition latency is recorded without changing decoder behavior. Runtime logs split each visible speaker update into audio-queue wait, recognition processing, UI dispatch and an estimated speech-end-to-UI delay; final results also report rolling p50, p95 and maximum values for the active session.
+
+Only the source-level defaults belong in git. User-specific outputs and large models do not.
+
+## Key Trade-Offs
+
+### Why Tkinter?
+
+Because the core value of this project is workflow utility, audio routing, and transcription logic, not bleeding-edge desktop rendering. Tkinter keeps the native tool easy to run and easy to modify.
+
+### Why keep vendor binaries in-repo?
+
+Because Windows loopback support is one of the most fragile parts of the setup. Vendoring critical pieces improves practical portability at the cost of some repository cleanliness.
+
+### Why keep the model external?
+
+Because Vosk models are large runtime assets, change independently from the source tree, and would bloat the repository heavily. The current design chooses a smaller and more reviewable repo over a zero-download first run.
+
+### Why keep experiments in the same repository?
+
+Because the experimental flows directly exercise the same transcription core and workflow assumptions. Splitting them too early would make iteration slower and hide the product evolution story.
+
+## Production Hardening Priorities
+
+If this were being prepared for broader deployment, the most valuable next moves would be:
+
+1. guided model bootstrap or download assistant,
+2. code signing and cleaner Windows trust story,
+3. regression tests on saved audio fixtures,
+4. cleaner module boundaries,
+5. explicit observability around device selection, latency, and recognition quality,
+6. configurable knowledge profiles beyond the current IT dictionary.

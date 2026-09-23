@@ -1,77 +1,81 @@
-# Install From Packaged Release
+# Установка готового выпуска
 
-This guide is for reviewers or operators who want to try `OPERATOR_ASSIST` on a Windows machine without setting up the source repository first.
+**Русский** | [English](install-from-release.en.md)
 
-## What To Download
+Это руководство предназначено для пользователей, которые хотят запустить `OPERATOR_ASSIST` в Windows без предварительной настройки исходного кода.
 
-Open the repository Releases page and choose one of these assets:
+## Что скачать
 
-- `OPERATOR_ASSIST-Setup-<version>.exe` for a normal installer flow,
-- `OPERATOR_ASSIST-portable-<version>.zip` for a portable unpack-and-run flow.
+Откройте раздел Releases репозитория и выберите один из файлов:
 
-Both assets are built from the same release pipeline. The installer is more convenient for a normal desktop setup, while the portable archive is useful for demos, test machines, or USB-style handoff.
+- `OPERATOR_ASSIST-Setup-<version>.exe` — обычная установка;
+- `OPERATOR_ASSIST-portable-<version>.zip` — переносимая версия без установки.
 
-## Installer Flow
+Оба файла создаются одним процессом сборки. Установщик удобнее для постоянной работы, а portable-архив подходит для демонстраций, тестовых компьютеров и запуска с внешнего накопителя.
 
-1. Run `OPERATOR_ASSIST-Setup-<version>.exe`.
-2. Complete the Inno Setup wizard.
-3. Launch `OPERATOR_ASSIST` from the Start menu or desktop shortcut if you enabled it.
+## Установка
 
-## Portable Flow
+1. Запустите `OPERATOR_ASSIST-Setup-<version>.exe`.
+2. Завершите установку с помощью мастера Inno Setup.
+3. Запустите `OPERATOR_ASSIST` из меню «Пуск» или с ярлыка на рабочем столе, если он был создан.
 
-1. Extract `OPERATOR_ASSIST-portable-<version>.zip` into a writable folder.
-2. Open the extracted `OPERATOR_ASSIST` directory.
-3. Start `OPERATOR_ASSIST.exe`.
+## Переносимая версия
 
-## Packaged Folder Layout
+1. Распакуйте `OPERATOR_ASSIST-portable-<version>.zip` в каталог с правом записи.
+2. Откройте распакованный каталог `OPERATOR_ASSIST`.
+3. Запустите `OPERATOR_ASSIST.exe`.
 
-The packaged app keeps user-editable and writable files out of the top-level application root:
+## Структура установленного приложения
 
-- `data/models/` for Vosk and the local Whisper cache,
-- `data/temp/` and `data/cache/` for application-owned temporary data,
-- `data/logs/` for runtime logs,
-- `data/transcripts/` for exported transcripts,
-- `config/technical_terms.json` for editable term replacements,
-- `config/custom_terms.txt` for simple user-defined corrections,
-- `config/chatgpt_prompt_template.txt` for the AI handoff template,
-- `support/` for helper materials and bridge scripts.
+Изменяемые и записываемые данные вынесены из корня приложения:
 
-## Required Model Step
+- `data/models/` — модели Vosk и локальный кэш Whisper;
+- `data/temp/` и `data/cache/` — временные данные приложения;
+- `data/logs/` — журналы работы;
+- `data/transcripts/` — экспортированные расшифровки;
+- `config/technical_terms.json` — редактируемые замены терминов;
+- `config/custom_terms.txt` — простые пользовательские исправления;
+- `config/chatgpt_prompt_template.txt` — шаблон передачи контекста в ИИ;
+- `support/` — вспомогательные материалы и скрипты интеграции.
 
-The packaged app still expects an external Russian Vosk model. Before first successful recognition:
+## Обязательная модель Vosk
 
-1. open the local `data/models/` folder,
-2. extract one supported model there,
-3. confirm one of these folder names exists:
+Перед первым успешным распознаванием:
+
+1. откройте локальный каталог `data/models/`;
+2. распакуйте в него поддерживаемую модель;
+3. убедитесь, что существует один из каталогов:
    - `vosk-model-ru-0.42`
    - `vosk-model-ru-0.22`
    - `vosk-model-small-ru-0.22`
 
-The model must be extracted as a folder, not left inside a zip archive.
+Модель должна находиться в распакованном каталоге, а не внутри ZIP-архива.
 
-The optional `Точный (Whisper)` caller mode offers `Максимальная точность (large-v3)` for difficult speech and accents and `Быстрый режим (large-v3-turbo)` for lower startup and recognition latency. Their cache is stored under `data/models/whisper-cache/`; each model's first preparation can take noticeably longer than later starts. Cached snapshots are opened directly so later launches do not repeat hub resolution. The compute selector offers `Видеокарта (GPU/CUDA)` and `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable, while CPU mode deliberately avoids video-memory allocation.
+В дополнительном режиме `Точный (Whisper)` доступны `Максимальная точность (large-v3)` для сложной речи и акцентов и `Быстрый режим (large-v3-turbo)` для более быстрого запуска и меньшей задержки. Кэш моделей хранится в `data/models/whisper-cache/`. Первая подготовка модели может занять заметно больше времени, чем последующие запуски.
 
-## First Launch Checklist
+Переключатель вычислителя предлагает `Видеокарта (GPU/CUDA)` и `Процессор (CPU)`. При недоступной CUDA режим GPU автоматически переключается на CPU, а режим CPU не использует видеопамять.
 
-On first start, the app should guide the operator through readiness checks:
+## Проверка первого запуска
 
-- model detected,
-- every source required by the selected capture mode is selected,
-- settings path available.
+При первом запуске приложение должно подтвердить:
 
-Choose `Оба канала`, `Только собеседник`, or `Только оператор`. Use `Найти звук` while audio is playing to probe the available caller routes, then confirm the final routing before pressing `Старт`.
+- наличие модели;
+- выбор всех источников для текущего режима захвата;
+- доступность пути настроек.
 
-For a repeatedly misrecognized name or term, click `Словарь` and add an exact correction such as `нинарадове = Ненарадове`. Save the file and start a new session. Empty lines and lines beginning with `#` are ignored; malformed rules are skipped and recorded in the log.
+Выберите `Оба канала`, `Только собеседник` или `Только оператор`. Если маршрут системного звука неочевиден, включите тестовое аудио и нажмите `Найти звук`. Перед нажатием `Старт` проверьте окончательно выбранные источники.
 
-## If Windows Shows A Trust Warning
+Если имя или термин регулярно распознаётся неправильно, нажмите `Словарь` и добавьте точное правило, например `нинарадове = Ненарадове`. Сохраните файл и начните новый сеанс. Пустые строки и строки, начинающиеся с `#`, игнорируются; некорректные правила пропускаются и записываются в журнал.
 
-The release pipeline is automated, but the current Windows binaries are not code-signed yet. On some machines that means SmartScreen or similar trust warnings may still appear. That is expected for the current stage of the project and does not indicate a packaging failure by itself.
+## Предупреждение Windows
 
-## Recommended Demo Preparation
+Сборка выпуска автоматизирована, но исполняемые файлы пока не имеют цифровой подписи. Поэтому на некоторых компьютерах SmartScreen может показать предупреждение. На текущем этапе проекта это ожидаемое поведение и само по себе не означает ошибку упаковки.
 
-For a clean demo on another computer:
+## Подготовка к демонстрации
 
-1. prepare the release asset in advance,
-2. prepare one supported Vosk model in advance,
-3. verify that the machine exposes either WASAPI loopback or a usable fallback source,
-4. run one short audio test before the actual presentation.
+Перед демонстрацией на другом компьютере:
+
+1. заранее скачайте нужный вариант выпуска;
+2. заранее подготовьте поддерживаемую модель Vosk;
+3. убедитесь, что компьютер предоставляет WASAPI loopback или рабочий резервный источник;
+4. выполните короткий тест звука до начала презентации.

@@ -1,51 +1,56 @@
-# First Launch Guide
+# Первый запуск
 
-This guide describes the intended first-run flow for the current desktop build.
+**Русский** | [English](first-launch.en.md)
 
-## What The App Checks On Startup
+Это руководство описывает рекомендуемый первый запуск текущей настольной версии.
 
-When the desktop app opens, it now validates four things before the operator starts a session:
+## Что приложение проверяет при запуске
 
-- whether a supported Vosk model is present,
-- whether every source required by the selected capture mode is selected,
-- whether local settings have already been saved.
+Перед началом сеанса приложение проверяет четыре условия:
 
-The goal is to keep startup informative without forcing the user through modal errors immediately.
+- найдена ли поддерживаемая модель Vosk;
+- выбраны ли все источники, необходимые для текущего режима захвата;
+- были ли сохранены локальные настройки;
+- выполнены ли базовые условия запуска выбранного режима.
 
-## Supported Model Folder Names
+Цель этой проверки — понятно показать состояние системы, не прерывая первый запуск серией модальных ошибок.
 
-The runtime currently looks for one of these local folders:
+## Поддерживаемые каталоги моделей
 
-- source checkout: under `models/`
-- packaged install: under `data/models/`
+Приложение ищет одну из поддерживаемых моделей:
+
+- при запуске из исходного кода — в каталоге `models/`;
+- в установленной версии — в каталоге `data/models/`.
+
+Поддерживаемые имена каталогов:
 
 - `vosk-model-ru-0.42`
 - `vosk-model-ru-0.22`
 - `vosk-model-small-ru-0.22`
 
-The model archive must be extracted, not left as a `.zip`.
+Архив модели необходимо распаковать. Оставлять модель в файле `.zip` нельзя.
 
-## First-Run Operator Flow
+## Порядок первого запуска
 
-1. Launch `Run-Operator-Assist.cmd` or start `python operator_assist.py`.
-2. If no model is available, use the `Папка models` button and place a supported Russian Vosk model there.
-3. Click `Проверить снова`.
-4. Choose `Оба канала`, `Только собеседник`, or `Только оператор`.
-5. Confirm the enabled microphone channel points to the operator headset microphone.
-6. Confirm the enabled caller channel points to `WASAPI loopback` or a suitable fallback such as `Stereo Mix`.
-7. If the correct caller route is unclear, play test audio and click `Найти звук`.
-8. Choose `Стабильный (Vosk)` for the lightest mode or `Точный (Whisper)` for higher caller accuracy.
-9. In Whisper mode, choose `Максимальная точность (large-v3)` for difficult speech and accents or `Быстрый режим (large-v3-turbo)` for lower latency.
-10. Choose `Видеокарта (GPU/CUDA)` or `Процессор (CPU)`. GPU mode falls back to CPU if CUDA is unavailable; CPU mode never tries to allocate video memory.
-11. Wait until the readiness block reports that the app is ready, then press `Старт`.
+1. Запустите `Run-Operator-Assist.cmd` или выполните `python operator_assist.py`.
+2. Если модель не найдена, нажмите `Папка models` и поместите туда поддерживаемую русскую модель Vosk.
+3. Нажмите `Проверить снова`.
+4. Выберите `Оба канала`, `Только собеседник` или `Только оператор`.
+5. Убедитесь, что для канала оператора выбран микрофон гарнитуры.
+6. Для канала собеседника выберите `WASAPI loopback` или подходящий резервный источник, например `Stereo Mix`.
+7. Если нужный маршрут неочевиден, включите тестовый звук и нажмите `Найти звук`.
+8. Выберите `Стабильный (Vosk)` для минимальной нагрузки или `Точный (Whisper)` для более качественного распознавания собеседника.
+9. В режиме Whisper выберите `Максимальная точность (large-v3)` для сложной речи и акцентов либо `Быстрый режим (large-v3-turbo)` для меньшей задержки.
+10. Выберите `Видеокарта (GPU/CUDA)` или `Процессор (CPU)`. При недоступной CUDA режим GPU автоматически переключается на CPU; режим CPU не пытается занимать видеопамять.
+11. Дождитесь сообщения о готовности и нажмите `Старт`.
 
-## Why This Flow Exists
+## Почему требуется такая подготовка
 
-Speech models are intentionally kept outside git and outside the default repository payload because they are large runtime assets. The first-launch block is there to make that trade-off understandable to the user instead of failing with unclear startup behavior.
+Модели распознавания намеренно не включены в Git и стандартный пакет репозитория: это крупные внешние ресурсы. Блок готовности объясняет это пользователю и помогает исправить настройку до запуска сеанса.
 
-## Troubleshooting
+## Решение проблем
 
-- If the model is present but still not detected, check the final extracted folder name.
-- If both transcript panes capture the same phrases, use `Только собеседник` for playback tests or review whether loud headphones are spilling into the microphone.
-- If the caller channel is empty, prefer `WASAPI loopback` when available; otherwise use a fallback capture source provided by the machine.
-- If packaging worked but recognition does not start, open the logs folder from the app and inspect the latest runtime log.
+- Если модель распакована, но не обнаружена, проверьте имя итогового каталога.
+- Если одинаковые фразы появляются в обеих панелях, используйте `Только собеседник` для теста воспроизведения и убедитесь, что громкий звук из наушников не попадает в микрофон.
+- Если канал собеседника пуст, выбирайте `WASAPI loopback`, когда он доступен. В противном случае используйте резервный источник записи, предоставленный системой.
+- Если приложение установилось, но распознавание не запускается, откройте из интерфейса каталог журналов и проверьте последний файл.

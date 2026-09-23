@@ -1,33 +1,35 @@
-# Known Issues
+# Известные ограничения
 
-This document lists the current limitations that are important to mention during review, demo, or handoff.
+**Русский** | [English](known-issues.en.md)
 
-## Audio And Recognition
+В этом документе перечислены текущие ограничения, которые важно учитывать при проверке, демонстрации и передаче проекта.
 
-- Offline Russian recognition quality still depends on source quality and routing; Vosk favors low latency, while Whisper offers a larger `large-v3` quality profile and a smaller `large-v3-turbo` profile.
-- Loading multi-gigabyte Whisper weights from an HDD remains slower than loading from an SSD; the turbo profile reduces but cannot eliminate this storage limit.
-- Whisper preview text is intentionally provisional and may change when the higher-accuracy final pass completes after a pause.
-- Domain vocabulary is improved mainly through deterministic post-processing, not through model fine-tuning.
-- Acoustic cross-talk can still happen when loud headphones physically spill into a nearby microphone; delayed duplicate filtering reduces repeated text but cannot reconstruct perfectly separated audio.
-- Real-world audio regression tests with saved fixtures are not yet part of the automated suite.
+## Звук и распознавание
 
-## Platform Scope
+- Качество локального распознавания русской речи зависит от исходного звука и маршрутизации. Vosk ориентирован на низкую задержку, а Whisper предлагает точную модель `large-v3` и более компактную `large-v3-turbo`.
+- Загрузка многогигабайтных моделей Whisper с HDD заметно медленнее, чем с SSD. Turbo-модель уменьшает задержку, но не устраняет ограничение скорости накопителя.
+- Предварительный текст Whisper намеренно является черновым и может измениться после паузы, когда завершится более точное финальное распознавание.
+- Отраслевая лексика улучшается главным образом детерминированной постобработкой, а не дообучением модели.
+- Физическое проникновение громкого звука из наушников в расположенный рядом микрофон может привести к пересечению каналов. Фильтрация отложенных дублей уменьшает повторы, но не способна идеально разделить уже смешанный звук.
+- Автоматический набор пока не содержит регрессионных тестов на сохранённых реальных аудиозаписях.
 
-- The primary desktop workflow is Windows-first.
-- WASAPI loopback behavior varies between machines and drivers.
-- Some machines expose clean loopback sources; others require fallback sources such as Stereo Mix.
+## Поддерживаемая платформа
 
-## Packaging And Distribution
+- Основной настольный сценарий предназначен для Windows.
+- Поведение WASAPI loopback зависит от компьютера и аудиодрайвера.
+- На одних компьютерах доступны чистые loopback-источники, на других требуется резервный источник, например Stereo Mix.
 
-- The app now has portable and installer outputs, but the release is still not code-signed.
-- Speech models are not bundled with the repository and must still be provided locally.
-- First launch is therefore clearer than before, but not yet fully zero-setup.
+## Упаковка и распространение
 
-## Experimental Surfaces
+- Приложение выпускается в виде установщика и portable-архива, но исполняемые файлы пока не имеют цифровой подписи.
+- Модели распознавания не включены в репозиторий и должны быть подготовлены локально.
+- Первый запуск стал понятнее, но установка пока не является полностью автоматической.
 
-- The Chrome bridge should still be treated as an optional experiment rather than the main product promise.
-- Browser prototypes are useful for demos, but they are less deterministic than the offline desktop runtime.
+## Экспериментальные компоненты
 
-## Why This File Exists
+- Интеграция с Chrome остаётся дополнительным экспериментом, а не основной функцией продукта.
+- Браузерные прототипы подходят для демонстраций, но менее предсказуемы, чем локальное настольное приложение.
 
-Keeping limitations explicit is part of the engineering story. It helps reviewers understand what is intentionally solved, what is partially solved, and what is still an honest next step rather than hidden debt.
+## Зачем фиксировать ограничения
+
+Открытое описание ограничений является частью инженерного подхода. Оно помогает отделить завершённые функции от частично решённых задач и честно обозначить дальнейшие направления развития.

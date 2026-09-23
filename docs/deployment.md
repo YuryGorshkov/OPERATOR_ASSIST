@@ -1,154 +1,152 @@
-# OPERATOR_ASSIST Deployment Notes
+# Развёртывание OPERATOR_ASSIST
 
-## Supported Environment
+**Русский** | [English](deployment.en.md)
 
-Primary target:
+## Поддерживаемая среда
 
-- Windows 10 or Windows 11
-- Python 3.10
-- microphone input available
-- either WASAPI loopback support or a fallback source such as Stereo Mix
+Основная платформа:
 
-Secondary target:
+- Windows 10 или Windows 11;
+- Python 3.10;
+- доступный микрофонный вход;
+- WASAPI loopback или резервный источник, например Stereo Mix.
 
-- Chromium-based browser for the lightweight browser prototypes
+Дополнительная платформа:
 
-## Python Dependencies
+- браузер на основе Chromium для облегчённых браузерных прототипов.
 
-Install from:
+## Зависимости Python
+
+Стандартная установка:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-For a smoother source bootstrap on a fresh Windows machine, prefer the dedicated helper:
+Для чистой установки из исходного кода в Windows рекомендуется специальный помощник:
 
 ```text
 Setup-From-Git.cmd
 ```
 
-More detail: [Install from git](install-from-git.md)
+Подробнее: [установка из Git](install-from-git.md)
 
-The project uses a mixed dependency model:
+Проект использует смешанную модель зависимостей:
 
-- environment-installed packages for the core runtime,
-- vendored packages under `vendor/` for loopback-related portability.
+- пакеты окружения для основной среды выполнения;
+- локальные пакеты в `vendor/` для более переносимой поддержки loopback.
 
-## Speech Models
+## Модели распознавания
 
-Vosk models are not committed to git.
+Модели Vosk не добавляются в Git.
 
-Expected local paths:
+Ожидаемые локальные пути:
 
 - `models/vosk-model-ru-0.42`
 - `models/vosk-model-ru-0.22`
 - `models/vosk-model-small-ru-0.22`
 
-For a public repository, excluding these models is the correct trade-off:
+Для публичного репозитория это осознанный компромисс:
 
-- the repo stays lightweight,
-- the source remains reviewable,
-- runtime assets stay local.
+- репозиторий остаётся компактным;
+- исходный код удобно проверять;
+- крупные рабочие ресурсы хранятся локально.
 
-## Desktop Launchers
+## Командные файлы запуска
 
-Current launchers include:
+Основные точки запуска:
 
 - `Run-Operator-Assist.cmd`
 - `Run-Operator-Assist.ps1`
 - `Run-VoiceNotes.cmd`
 - `Run-Speaker-Text.cmd`
-- corresponding `.vbs` wrappers
+- соответствующие оболочки `.vbs`.
 
-Current status:
+Основной командный файл оператора ищет Python без жёсткой привязки к пользовательскому пути. Это повышает переносимость, хотя не заменяет готовый установщик.
 
-The main operator launcher now resolves Python more defensively instead of hardcoding one user-specific path. This is a meaningful improvement for portability, although it is still not the same as a packaged installer.
+## Предварительная проверка
 
-## Preflight Check
-
-The repository includes a local environment validation script:
+В репозитории есть скрипт проверки локальной среды:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Check-Environment.ps1
 ```
 
-It verifies:
+Он проверяет:
 
-- presence of a usable Python runtime,
-- presence of key source files,
-- visible Vosk model directories,
-- vendored loopback dependencies,
-- critical Python packages for the desktop runtime.
+- наличие подходящего Python;
+- наличие ключевых файлов исходного кода;
+- доступные каталоги моделей Vosk;
+- локальные зависимости loopback;
+- критичные пакеты Python для настольного приложения.
 
-## Browser Prototype Hosting
+## Запуск браузерных прототипов
 
-The repository includes a minimal static file server:
+Минимальный сервер статических файлов запускается командой:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Serve-App-Tcp.ps1
 ```
 
-Default local URL:
+Адрес по умолчанию:
 
 ```text
 http://127.0.0.1:8765/
 ```
 
-This is intentionally small and self-contained. It is good enough for demos and local review, not intended as a production web backend.
+Этот сервер намеренно остаётся небольшим и автономным. Он подходит для локальной проверки и демонстрации, но не предназначен для использования как промышленный веб-сервер.
 
-## Local-Only Data
+## Локальные данные
 
-The following are intentionally excluded from version control:
+Следующие данные исключены из системы контроля версий:
 
 - `logs/`
 - `transcripts/`
 - `models/`
 - `operator_assist_settings.json`
-- build and packaging output
+- результаты сборки и упаковки.
 
-This protects the repository from being polluted with runtime noise and large artifacts.
+Так репозиторий не засоряется рабочими журналами, пользовательскими данными и крупными файлами.
 
-## Packaging Workflow
+## Сборка выпуска
 
-The repository now contains a committed Windows release path:
+Репозиторий содержит полный процесс подготовки Windows-версии:
 
-- PyInstaller spec: `packaging/pyinstaller/operator_assist.spec`
-- Inno Setup script: `packaging/inno/OperatorAssist.iss`
-- release orchestration: `scripts/Build-Release.ps1`
+- спецификация PyInstaller: `packaging/pyinstaller/operator_assist.spec`;
+- сценарий Inno Setup: `packaging/inno/OperatorAssist.iss`;
+- управление сборкой: `scripts/Build-Release.ps1`.
 
-Install build-time tooling:
+Установка инструментов сборки:
 
 ```bash
 pip install .[build]
 ```
 
-Build the release:
+Сборка выпуска:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-To keep all temporary build data off the Windows system drive, pass a dedicated
-directory on another drive:
+Чтобы все временные данные сборки находились не на системном диске Windows, передайте каталог на другом диске:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1 `
     -TempRoot "E:\OPERATOR_ASSIST_LAB\build-temp"
 ```
 
-For repeated local builds, set `OPERATOR_ASSIST_BUILD_TEMP` to that directory.
-An explicit `-TempRoot` value takes precedence over the environment variable.
+Для повторяющихся локальных сборок можно задать переменную среды `OPERATOR_ASSIST_BUILD_TEMP`. Явный параметр `-TempRoot` имеет приоритет над переменной среды.
 
-By default the script:
+По умолчанию скрипт:
 
-1. runs `python -m unittest discover -s tests`,
-2. builds a PyInstaller one-folder bundle,
-3. assembles `release/portable/OPERATOR_ASSIST`,
-4. writes packaged support files under `support/`,
-5. creates a portable zip archive,
-6. tries to build an Inno Setup installer when `ISCC.exe` is available.
+1. запускает `python -m unittest discover -s tests`;
+2. собирает приложение PyInstaller в формате one-folder;
+3. формирует `release/portable/OPERATOR_ASSIST`;
+4. помещает вспомогательные файлы в `support/`;
+5. создаёт portable-архив;
+6. пытается собрать установщик Inno Setup, если доступен `ISCC.exe`.
 
-Typical successful outputs:
+Ожидаемые результаты успешной сборки:
 
 - `release/portable/OPERATOR_ASSIST`
 - `release/portable/OPERATOR_ASSIST-portable.zip`
@@ -157,81 +155,84 @@ Typical successful outputs:
 - `release/publish/OPERATOR_ASSIST-Setup-<version>.exe`
 - `release/publish/SHA256SUMS.txt`
 
-Useful switches:
+Дополнительные параметры:
 
 - `-SkipTests`
 - `-SkipZip`
 - `-SkipInstaller`
 - `-NoClean`
 
-The local build keeps stable file names for convenience and also prepares versioned publish-ready artifacts under `release/publish/` for GitHub Releases.
+Локальная сборка сохраняет стабильные имена файлов для удобства и одновременно формирует версионные файлы в `release/publish/`, готовые к публикации в GitHub Releases.
 
-## GitHub Release Automation
+## Автоматизация GitHub Releases
 
-The repository now includes a dedicated GitHub Actions release workflow:
+Для выпуска используется GitHub Actions:
 
 - `.github/workflows/release.yml`
 
-What it does on a tagged push like `v1.0.1`:
+При отправке тега, например `v1.0.1`, процесс:
 
-1. pins the runner to `windows-2025`,
-2. installs Python build dependencies,
-3. installs Inno Setup,
-4. validates that the pushed tag matches `pyproject.toml`,
-5. runs `scripts/Build-Release.ps1`,
-6. uploads versioned artifacts and checksums,
-7. publishes or updates the matching GitHub Release.
+1. использует среду `windows-2025`;
+2. устанавливает зависимости сборки Python;
+3. устанавливает Inno Setup;
+4. проверяет совпадение тега с версией в `pyproject.toml`;
+5. запускает `scripts/Build-Release.ps1`;
+6. загружает версионные файлы и контрольные суммы;
+7. публикует или обновляет соответствующий GitHub Release.
 
-Recommended release procedure:
+Рекомендуемый порядок выпуска:
 
-1. update `pyproject.toml` version,
-2. update `CHANGELOG.md`,
-3. commit the release preparation,
-4. create and push a matching tag like `v1.0.1`,
-5. let GitHub Actions build and attach the Windows assets automatically.
+1. обновить версию в `pyproject.toml`;
+2. обновить `CHANGELOG.md`;
+3. создать коммит подготовки выпуска;
+4. создать и отправить совпадающий тег, например `v1.0.1`;
+5. дождаться, пока GitHub Actions соберёт и прикрепит файлы Windows.
 
-## Frozen Runtime Behavior
+## Поведение упакованного приложения
 
-The runtime now separates:
+Среда выполнения разделяет:
 
-- the bundle directory used by frozen Python modules,
-- the application directory next to the executable where packaged user data is kept.
+- каталог собранных модулей Python;
+- каталог приложения рядом с исполняемым файлом, где находятся пользовательские данные.
 
-That keeps the packaged app aligned with the existing product behavior:
+Структура установленной версии сохраняет ожидаемое поведение продукта:
 
-- `config/technical_terms.json` stays editable,
-- `config/custom_terms.txt` stays editable,
-- `config/chatgpt_prompt_template.txt` stays editable,
-- `data/models/` stays external,
-- `data/logs/` and `data/transcripts/` stay writable,
-- `support/` keeps build notes and helper scripts out of the app root.
+- `config/technical_terms.json` остаётся редактируемым;
+- `config/custom_terms.txt` остаётся редактируемым;
+- `config/chatgpt_prompt_template.txt` остаётся редактируемым;
+- `data/models/` хранит внешние модели;
+- `data/logs/` и `data/transcripts/` доступны для записи;
+- `support/` выносит инструкции сборки и вспомогательные скрипты из корня приложения.
 
-Installer upgrades preserve all three editable files in `config/`; packaged defaults are copied only when the corresponding file does not yet exist.
+При обновлении установщик сохраняет все три редактируемых файла из `config/`. Значение по умолчанию копируется только тогда, когда соответствующего файла ещё нет.
 
-## First-Launch Expectations
+## Первый запуск
 
-The current desktop build assumes a supported local Vosk model is still provided out-of-band by the operator or reviewer.
+Текущая версия предполагает, что пользователь или проверяющий отдельно подготовит поддерживаемую модель Vosk.
 
-To reduce friction, the desktop runtime now includes:
+Чтобы упростить настройку, приложение предоставляет:
 
-- a startup-readiness block,
-- a quick button to open the `models/` directory,
-- a quick button to open the application root,
-- a re-check action that validates model presence and source selection again.
+- блок готовности к запуску;
+- кнопку открытия каталога `models/`;
+- кнопку открытия корня приложения;
+- повторную проверку модели и выбранных источников.
 
-More detail: [First launch guide](first-launch.md)
-Packaged-app walkthrough: [Install from release](install-from-release.md)
-Live showcase helper: [Demo script](demo-script.md)
-Cross-machine verification: [Smoke checklist](smoke-checklist.md)
+Подробнее: [первый запуск](first-launch.md)
 
-## Recommended Demo Setup
+Установка готовой версии: [установка выпуска](install-from-release.md)
 
-For live demos or technical reviews:
+Сценарий показа: [demo-script.md](demo-script.md)
 
-1. prepare one working local Vosk model,
-2. verify the microphone source,
-3. verify the loopback or Stereo Mix source,
-4. keep the IT mode available but describe it as optional domain correction,
-5. present the Chrome bridge as an experiment, not as the core promise.
+Проверка на другом компьютере: [smoke-checklist.md](smoke-checklist.md)
 
-That framing keeps the project honest and technically strong.
+## Подготовка к демонстрации
+
+Для живой демонстрации или технического обзора:
+
+1. заранее подготовьте рабочую модель Vosk;
+2. проверьте источник микрофона;
+3. проверьте WASAPI loopback или Stereo Mix;
+4. оставьте ИТ-режим доступным, но представляйте его как дополнительную коррекцию терминов;
+5. показывайте интеграцию с Chrome как эксперимент, а не как основное обещание продукта.
+
+Такое позиционирование остаётся честным и подчёркивает сильные инженерные стороны проекта.
