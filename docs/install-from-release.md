@@ -28,6 +28,7 @@ Both assets are built from the same release pipeline. The installer is more conv
 The packaged app keeps user-editable and writable files out of the top-level application root:
 
 - `data/models/` for Vosk and the local Whisper cache,
+- `data/temp/` and `data/cache/` for application-owned temporary data,
 - `data/logs/` for runtime logs,
 - `data/transcripts/` for exported transcripts,
 - `config/technical_terms.json` for editable term replacements,

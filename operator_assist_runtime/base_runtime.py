@@ -5,6 +5,7 @@ from collections import deque
 import gc
 import json
 import logging
+import math
 import os
 import queue
 import subprocess
@@ -30,7 +31,11 @@ from operator_assist_runtime.technical_terms import (
     TechnicalTermsManager,
     serialize_terms_payload,
 )
-from operator_assist_runtime.runtime_paths import application_root, bundle_root, runtime_layout
+from operator_assist_runtime.runtime_paths import (
+    application_root,
+    bundle_root,
+    configure_process_storage,
+)
 from operator_assist_runtime.audio_diagnostics import (
     CLIPPING_WARNING_PERCENT,
     SIGNAL_LIVE_THRESHOLD,
@@ -64,7 +69,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.5.2"
+APP_VERSION = "1.5.3"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -76,6 +81,8 @@ SIMILAR_DUPLICATE_WINDOW_SEC = 1.8
 SIMILAR_DUPLICATE_MIN_CHARS = 16
 SIMILAR_DUPLICATE_RATIO = 0.84
 MIC_DUPLICATE_HOLD_SEC = 1.8
+CROSS_CHANNEL_DUPLICATE_WINDOW_SEC = 12.0
+COMMITTED_MIC_DUPLICATE_RETENTION_SEC = 14.0
 LEVEL_METER_RMS_CEILING = 5000
 CHATGPT_URL = "https://chatgpt.com/"
 CHAT_CONTEXT_CHARS = 1400
@@ -90,6 +97,8 @@ ASSETS_DIR = ROOT_DIR / "assets"
 MODELS_DIR = ROOT_DIR / "models"
 SETTINGS_PATH = ROOT_DIR / "operator_assist_settings.json"
 TRANSCRIPTS_DIR = ROOT_DIR / "transcripts"
+TEMP_DIR = ROOT_DIR / "temp"
+CACHE_DIR = ROOT_DIR / "cache"
 PROMPT_TEMPLATE_PATH = ROOT_DIR / "chatgpt_prompt_template.txt"
 BRIDGE_SCRIPT_PATH = ROOT_DIR / "scripts" / "paste_to_chat_window.vbs"
 TECHNICAL_TERMS_PATH = ROOT_DIR / "technical_terms.json"
@@ -122,13 +131,18 @@ PRECISE_MODEL_CHOICES = (
 def apply_runtime_layout(base_dir=None, *, bundle_dir=None, frozen=None):
     global BASE_DIR, BUNDLE_DIR, PACKAGED_LAYOUT
     global DATA_DIR, CONFIG_DIR, SUPPORT_DIR, ASSETS_DIR, MODELS_DIR
-    global SETTINGS_PATH, TRANSCRIPTS_DIR, PROMPT_TEMPLATE_PATH, BRIDGE_SCRIPT_PATH
+    global SETTINGS_PATH, TRANSCRIPTS_DIR, TEMP_DIR, CACHE_DIR
+    global PROMPT_TEMPLATE_PATH, BRIDGE_SCRIPT_PATH
     global TECHNICAL_TERMS_PATH, CUSTOM_TERMS_PATH
     global APP_LOGO_PATH, APP_LOGO_SMALL_PATH, APP_LOGO_LARGE_PATH, APP_ICON_PATH, MODEL_CANDIDATES
 
     resolved_base = Path(base_dir).resolve() if base_dir is not None else ROOT_DIR
     resolved_bundle = Path(bundle_dir).resolve() if bundle_dir is not None else BUNDLE_DIR
-    layout = runtime_layout(resolved_base, bundle_dir=resolved_bundle, frozen=frozen)
+    layout = configure_process_storage(
+        resolved_base,
+        bundle_dir=resolved_bundle,
+        frozen=frozen,
+    )
 
     BASE_DIR = layout["base_dir"]
     BUNDLE_DIR = layout["bundle_dir"]
@@ -140,6 +154,8 @@ def apply_runtime_layout(base_dir=None, *, bundle_dir=None, frozen=None):
     MODELS_DIR = layout["models_dir"]
     SETTINGS_PATH = layout["settings_path"]
     TRANSCRIPTS_DIR = layout["transcripts_dir"]
+    TEMP_DIR = layout["temp_dir"]
+    CACHE_DIR = layout["cache_dir"]
     PROMPT_TEMPLATE_PATH = layout["prompt_template_path"]
     BRIDGE_SCRIPT_PATH = layout["bridge_script_path"]
     TECHNICAL_TERMS_PATH = layout["technical_terms_path"]
@@ -841,6 +857,8 @@ class OperatorAssistApp:
         self.last_overlap_warning_at = 0.0
         self.recent_mic_finals = deque()
         self.pending_mic_finals = deque()
+        self.committed_mic_finals = deque()
+        self.mic_final_tag_serial = 0
         self.precise_engine_bundle = None
         self.precise_engine_loading = False
         self.precise_engine_load_started_at = 0.0
@@ -1233,13 +1251,13 @@ class OperatorAssistApp:
 
     def _refresh_startup_readiness(self):
         vosk_required = self._requires_vosk_model()
-        precise_only = (
+        precise_route = (
             not vosk_required
             and self._capture_speaker_enabled()
             and self._current_speaker_mode_key() == SPEAKER_MODE_PRECISE
         )
-        precise_bundle = self.precise_engine_bundle if precise_only else None
-        if precise_only:
+        precise_bundle = self.precise_engine_bundle if precise_route else None
+        if precise_route:
             summary_model_loading = self.precise_engine_loading or precise_bundle is None
             summary_active_model = (
                 f"Whisper {precise_bundle.model_name} ({precise_bundle.device}/{precise_bundle.compute_type})"
@@ -1620,14 +1638,14 @@ class OperatorAssistApp:
             self._set_route_diag_message()
 
     def _remember_recent_final(self, bucket, text, event_time):
-        cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
+        cutoff = event_time - CROSS_CHANNEL_DUPLICATE_WINDOW_SEC
         bucket.append((text, event_time))
         while bucket and bucket[0][1] < cutoff:
             bucket.popleft()
 
     def _find_recent_overlap(self, text, event_time, recent_items):
         for other_text, other_time in reversed(recent_items):
-            if abs(event_time - other_time) > SIMILAR_DUPLICATE_WINDOW_SEC:
+            if abs(event_time - other_time) > CROSS_CHANNEL_DUPLICATE_WINDOW_SEC:
                 continue
 
             if are_exact_duplicates(text, other_text):
@@ -1723,9 +1741,16 @@ class OperatorAssistApp:
         return capture_mode_uses_speaker(self._current_capture_mode_key())
 
     def _requires_vosk_model(self):
-        return self._capture_mic_enabled() or (
+        precise_speaker_route = (
             self._capture_speaker_enabled()
-            and self._current_speaker_mode_key() == SPEAKER_MODE_STABLE
+            and self._current_speaker_mode_key() == SPEAKER_MODE_PRECISE
+        )
+        return (
+            self._capture_speaker_enabled()
+            and not precise_speaker_route
+        ) or (
+            self._capture_mic_enabled()
+            and not precise_speaker_route
         )
 
     def _release_vosk_model_if_unused(self):
@@ -1754,6 +1779,14 @@ class OperatorAssistApp:
         else:
             self._release_vosk_model_if_unused()
             if precise_required:
+                if self.model_loading:
+                    self.status_var.set("Переключаю модель")
+                    self.hint_var.set(
+                        "Завершаю уже начатую загрузку Vosk, затем освобожу её и открою Whisper."
+                    )
+                    self._refresh_startup_readiness()
+                    self._update_start_button_state()
+                    return
                 ensure_precise = getattr(self, "_ensure_precise_speaker_bundle", None)
                 if ensure_precise is not None:
                     ensure_precise(start_after_load=False)
@@ -2059,6 +2092,8 @@ class OperatorAssistApp:
         self.channel_overlap_warning_active = False
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
+        self.pending_mic_finals.clear()
+        self._clear_committed_mic_tracking()
         self._refresh_audio_diagnostics()
         self._set_audio_controls_running_state(True)
         self._update_start_button_state()
@@ -2077,6 +2112,7 @@ class OperatorAssistApp:
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
         self.pending_mic_finals.clear()
+        self._clear_committed_mic_tracking()
         self._reset_audio_diagnostics()
 
         self._set_audio_controls_running_state(False)
@@ -2153,7 +2189,7 @@ class OperatorAssistApp:
             )
 
     def _remember_speaker_final(self, text, event_time):
-        cutoff = event_time - SIMILAR_DUPLICATE_WINDOW_SEC
+        cutoff = event_time - CROSS_CHANNEL_DUPLICATE_WINDOW_SEC
         self.recent_speaker_finals.append((text, event_time))
 
         while self.recent_speaker_finals and self.recent_speaker_finals[0][1] < cutoff:
@@ -2164,7 +2200,8 @@ class OperatorAssistApp:
             self._remember_recent_final(self.recent_mic_finals, text, event_time)
             self._append_text(self.my_text, text + " ")
             return
-        self.pending_mic_finals.append((text, event_time, event_time + MIC_DUPLICATE_HOLD_SEC))
+        deadline = time.monotonic() + MIC_DUPLICATE_HOLD_SEC
+        self.pending_mic_finals.append((text, event_time, deadline))
 
     def _discard_pending_mic_overlap(self, speaker_text, event_time):
         kept = deque()
@@ -2172,14 +2209,15 @@ class OperatorAssistApp:
         while self.pending_mic_finals:
             mic_text, mic_time, deadline = self.pending_mic_finals.popleft()
             relation = None
-            if abs(event_time - mic_time) <= SIMILAR_DUPLICATE_WINDOW_SEC:
+            if abs(event_time - mic_time) <= CROSS_CHANNEL_DUPLICATE_WINDOW_SEC:
                 if are_exact_duplicates(speaker_text, mic_text):
                     relation = "exact"
                 elif are_similar_duplicates(speaker_text, mic_text):
                     relation = "similar"
 
-            if relation and match is None:
-                match = (relation, mic_text)
+            if relation:
+                if match is None:
+                    match = (relation, mic_text)
                 LOGGER.info(
                     "Suppressing pending mic duplicate. relation=%s me=%s speaker=%s",
                     relation,
@@ -2192,6 +2230,94 @@ class OperatorAssistApp:
         self.pending_mic_finals = kept
         return match
 
+    def _recognition_match_time(self, event_time, telemetry):
+        if telemetry:
+            try:
+                captured_at = float(telemetry.get("captured_at"))
+                audio_tail_seconds = float(telemetry.get("audio_tail_seconds") or 0.0)
+                match_time = captured_at - audio_tail_seconds
+                if math.isfinite(match_time) and math.isfinite(audio_tail_seconds):
+                    return match_time
+            except (TypeError, ValueError):
+                pass
+        return event_time
+
+    def _append_committed_mic_final(self, text, event_time):
+        tag_name = None
+        widget = getattr(self, "my_text", None)
+        if widget is not None and all(
+            hasattr(widget, method) for method in ("index", "insert", "tag_add", "see")
+        ):
+            self.mic_final_tag_serial += 1
+            tag_name = f"oa_mic_final_{self.mic_final_tag_serial}"
+            start = widget.index("end-1c")
+            widget.insert("end", text + " ")
+            end = widget.index("end-1c")
+            widget.tag_add(tag_name, start, end)
+            widget.see("end")
+        else:
+            self._append_text(self.my_text, text + " ")
+
+        self._remember_recent_final(self.recent_mic_finals, text, event_time)
+        self.committed_mic_finals.append(
+            (text, event_time, time.monotonic(), tag_name)
+        )
+
+    def _remove_mic_text_tag(self, tag_name, *, delete_text):
+        if not tag_name:
+            return False
+        widget = getattr(self, "my_text", None)
+        if widget is None or not hasattr(widget, "tag_ranges"):
+            return False
+        try:
+            ranges = tuple(widget.tag_ranges(tag_name))
+            if delete_text and len(ranges) >= 2:
+                widget.delete(ranges[0], ranges[-1])
+            widget.tag_delete(tag_name)
+            return bool(ranges)
+        except (AttributeError, tk.TclError):
+            LOGGER.exception("Failed to update committed mic text tag: %s", tag_name)
+            return False
+
+    def _discard_committed_mic_overlap(self, speaker_text, event_time):
+        kept = deque()
+        match = None
+        now = time.monotonic()
+        while self.committed_mic_finals:
+            mic_text, mic_time, committed_at, tag_name = self.committed_mic_finals.popleft()
+            relation = None
+            if abs(event_time - mic_time) <= CROSS_CHANNEL_DUPLICATE_WINDOW_SEC:
+                if are_exact_duplicates(speaker_text, mic_text):
+                    relation = "exact"
+                elif are_similar_duplicates(speaker_text, mic_text):
+                    relation = "similar"
+
+            if relation:
+                if match is None:
+                    match = (relation, mic_text)
+                removed = self._remove_mic_text_tag(tag_name, delete_text=True)
+                LOGGER.info(
+                    "Removing committed mic duplicate. relation=%s removed=%s me=%s speaker=%s",
+                    relation,
+                    removed,
+                    short_text(mic_text, 160),
+                    short_text(speaker_text, 160),
+                )
+                continue
+
+            if now - committed_at > COMMITTED_MIC_DUPLICATE_RETENTION_SEC:
+                self._remove_mic_text_tag(tag_name, delete_text=False)
+                continue
+            kept.append((mic_text, mic_time, committed_at, tag_name))
+
+        self.committed_mic_finals = kept
+        return match
+
+    def _clear_committed_mic_tracking(self):
+        while self.committed_mic_finals:
+            _text, _event_time, _committed_at, tag_name = self.committed_mic_finals.popleft()
+            self._remove_mic_text_tag(tag_name, delete_text=False)
+
     def _flush_pending_mic_finals(self, *, force=False):
         if not self.pending_mic_finals:
             return
@@ -2202,9 +2328,8 @@ class OperatorAssistApp:
             if not force and deadline > now:
                 break
             self.pending_mic_finals.popleft()
-            self._remember_recent_final(self.recent_mic_finals, text, event_time)
             if hasattr(self, "my_text"):
-                self._append_text(self.my_text, text + " ")
+                self._append_committed_mic_final(text, event_time)
 
     def _is_recent_exact_speaker_duplicate(self, text, event_time):
         for speaker_text, speaker_time in reversed(self.recent_speaker_finals):
@@ -2230,21 +2355,25 @@ class OperatorAssistApp:
                 if kind == "final":
                     _, label, text, event_time, *details = message
                     telemetry = details[0] if details else None
+                    match_time = self._recognition_match_time(event_time, telemetry)
                     if label == "speaker":
-                        pending_match = self._discard_pending_mic_overlap(text, event_time)
+                        pending_match = self._discard_pending_mic_overlap(text, match_time)
+                        committed_match = self._discard_committed_mic_overlap(text, match_time)
                         relation, _matched_text = self._find_recent_overlap(
-                            text, event_time, self.recent_mic_finals
+                            text, match_time, self.recent_mic_finals
                         )
                         if pending_match:
                             relation = pending_match[0]
+                        elif committed_match:
+                            relation = committed_match[0]
                         if relation:
                             self._register_channel_overlap(label, "me", text, relation)
-                        self._remember_speaker_final(text, event_time)
+                        self._remember_speaker_final(text, match_time)
                         self._append_text(self.speaker_text, text + " ")
                         self._record_recognition_latency(label, kind, text, telemetry)
                     else:
                         relation, matched_text = self._find_recent_overlap(
-                            text, event_time, self.recent_speaker_finals
+                            text, match_time, self.recent_speaker_finals
                         )
                         if relation in ("exact", "similar"):
                             self._register_channel_overlap(label, "speaker", text, relation)
@@ -2255,7 +2384,7 @@ class OperatorAssistApp:
                                 short_text(matched_text, 160),
                             )
                         else:
-                            self._queue_pending_mic_final(text, event_time)
+                            self._queue_pending_mic_final(text, match_time)
                 elif kind == "partial":
                     _, label, text, *details = message
                     telemetry = details[0] if details else None
@@ -2343,6 +2472,7 @@ class OperatorAssistApp:
                             "Discarded Vosk model loaded after switching to a Whisper-only route. duration=%.2f",
                             duration,
                         )
+                        self.root.after(0, self._prepare_recognition_engines_for_current_mode)
                     self._refresh_startup_readiness()
                     self._update_start_button_state()
                 elif kind == "model_failed":
@@ -2453,6 +2583,7 @@ class OperatorAssistApp:
         self.pending_mic_finals.clear()
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
+        self._clear_committed_mic_tracking()
         self.ai_prompt_text.delete("1.0", "end")
         self.last_sent_speaker_chars = 0
         self.pending_prompt_snapshot_len = 0
@@ -2651,6 +2782,12 @@ class OperatorAssistApp:
     def on_close(self):
         LOGGER.info("Application closing")
         self.stop_transcription()
+        self.model = None
+        self.active_model_dir = None
+        reset_precise = getattr(self, "_reset_precise_speaker_bundle", None)
+        if reset_precise is not None:
+            reset_precise()
+        gc.collect()
         self.root.destroy()
 
 

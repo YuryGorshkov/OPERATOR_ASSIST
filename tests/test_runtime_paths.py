@@ -44,6 +44,8 @@ class RuntimePathTests(unittest.TestCase):
         self.assertEqual(root / "assets", layout["assets_dir"])
         self.assertEqual(root / "models", layout["models_dir"])
         self.assertEqual(root / "transcripts", layout["transcripts_dir"])
+        self.assertEqual(root / "temp", layout["temp_dir"])
+        self.assertEqual(root / "cache", layout["cache_dir"])
         self.assertEqual(root / "scripts" / "paste_to_chat_window.vbs", layout["bridge_script_path"])
 
     def test_frozen_layout_separates_app_files_from_user_data(self):
@@ -59,6 +61,8 @@ class RuntimePathTests(unittest.TestCase):
         self.assertEqual(install_root / "data" / "models", layout["models_dir"])
         self.assertEqual(install_root / "data" / "logs", layout["logs_dir"])
         self.assertEqual(install_root / "data" / "transcripts", layout["transcripts_dir"])
+        self.assertEqual(install_root / "data" / "temp", layout["temp_dir"])
+        self.assertEqual(install_root / "data" / "cache", layout["cache_dir"])
         self.assertEqual(install_root / "config" / "technical_terms.json", layout["technical_terms_path"])
         self.assertEqual(install_root / "config" / "custom_terms.txt", layout["custom_terms_path"])
         self.assertEqual(install_root / "support" / "scripts" / "paste_to_chat_window.vbs", layout["bridge_script_path"])

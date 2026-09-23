@@ -126,10 +126,19 @@ class ModelLoadingPolicyTests(unittest.TestCase):
 
         self.assertFalse(app._requires_vosk_model())
 
-    def test_operator_channel_still_requires_vosk(self):
+    def test_mixed_precise_route_reuses_whisper_for_operator(self):
         app = self._app_for_route(
             mic_enabled=True,
             speaker_enabled=True,
+            speaker_mode=base_runtime.SPEAKER_MODE_PRECISE,
+        )
+
+        self.assertFalse(app._requires_vosk_model())
+
+    def test_operator_only_route_still_requires_vosk(self):
+        app = self._app_for_route(
+            mic_enabled=True,
+            speaker_enabled=False,
             speaker_mode=base_runtime.SPEAKER_MODE_PRECISE,
         )
 
@@ -212,7 +221,7 @@ class ModelLoadingPolicyTests(unittest.TestCase):
             "Whisper large-v3 (cuda/int8)",
         )
 
-    def test_mixed_route_reports_vosk_and_whisper_models(self):
+    def test_mixed_precise_route_reports_one_shared_whisper_model(self):
         app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
         app._capture_mic_enabled = lambda: True
         app._capture_speaker_enabled = lambda: True
@@ -226,7 +235,7 @@ class ModelLoadingPolicyTests(unittest.TestCase):
 
         self.assertEqual(
             app._recognition_model_name(),
-            "Vosk vosk-model-ru-0.42 + Whisper large-v3 (cuda/int8)",
+            "Whisper large-v3 (cuda/int8)",
         )
 
 

@@ -4,6 +4,20 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
+## v1.5.3 - 2026-09-23
+
+Memory and channel-routing hotfix.
+
+Highlights:
+
+- reuse one Whisper instance for both operator and caller channels in precise mode instead of retaining Vosk and Whisper together
+- keep application-owned temporary files and caches under the local `data/` directory beside the installed executable
+- keep the PyInstaller build cache under the explicitly selected build temp directory instead of the system drive
+- release inactive recognition models when switching modes and during application shutdown
+- align cross-channel duplicate detection to captured audio time instead of delayed decoder completion time
+- remove an already-rendered microphone duplicate when the matching Whisper result arrives later
+- expand regression coverage for shared-model routing, local runtime storage and delayed duplicate suppression
+
 ## v1.5.2 - 2026-09-23
 
 Real-world recognition hardening release.

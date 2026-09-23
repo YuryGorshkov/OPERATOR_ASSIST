@@ -128,6 +128,17 @@ Build the release:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
+To keep all temporary build data off the Windows system drive, pass a dedicated
+directory on another drive:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1 `
+    -TempRoot "E:\OPERATOR_ASSIST_LAB\build-temp"
+```
+
+For repeated local builds, set `OPERATOR_ASSIST_BUILD_TEMP` to that directory.
+An explicit `-TempRoot` value takes precedence over the environment variable.
+
 By default the script:
 
 1. runs `python -m unittest discover -s tests`,

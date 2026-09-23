@@ -1,7 +1,9 @@
 """Runtime path helpers for source and frozen OPERATOR_ASSIST builds."""
 
+import os
 from pathlib import Path
 import sys
+import tempfile
 
 
 def is_frozen():
@@ -54,6 +56,8 @@ def runtime_layout(base_dir, *, bundle_dir=None, frozen=None):
         "models_dir": data_dir / "models",
         "logs_dir": data_dir / "logs",
         "transcripts_dir": data_dir / "transcripts",
+        "temp_dir": data_dir / "temp",
+        "cache_dir": data_dir / "cache",
         "scripts_dir": support_dir / "scripts",
         "settings_path": config_dir / "operator_assist_settings.json",
         "prompt_template_path": config_dir / "chatgpt_prompt_template.txt",
@@ -61,3 +65,22 @@ def runtime_layout(base_dir, *, bundle_dir=None, frozen=None):
         "custom_terms_path": config_dir / "custom_terms.txt",
         "bridge_script_path": support_dir / "scripts" / "paste_to_chat_window.vbs",
     }
+
+
+def configure_process_storage(base_dir, *, bundle_dir=None, frozen=None):
+    """Keep application-owned temporary data beside the application data."""
+    layout = runtime_layout(base_dir, bundle_dir=bundle_dir, frozen=frozen)
+    temp_dir = layout["temp_dir"]
+    cache_dir = layout["cache_dir"]
+    huggingface_cache_dir = cache_dir / "huggingface"
+
+    for directory in (temp_dir, cache_dir, huggingface_cache_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    for variable in ("TEMP", "TMP", "TMPDIR"):
+        os.environ[variable] = str(temp_dir)
+    os.environ["HF_HOME"] = str(huggingface_cache_dir)
+    os.environ["HUGGINGFACE_HUB_CACHE"] = str(huggingface_cache_dir / "hub")
+    os.environ["XDG_CACHE_HOME"] = str(cache_dir)
+    tempfile.tempdir = str(temp_dir)
+    return layout

@@ -1,4 +1,5 @@
 param(
+    [string]$TempRoot = "",
     [switch]$SkipTests,
     [switch]$SkipInstaller,
     [switch]$SkipZip,
@@ -18,6 +19,18 @@ $installerRoot = Join-Path $releaseRoot "installer"
 $publishRoot = Join-Path $releaseRoot "publish"
 $specPath = Join-Path $projectRoot "packaging\pyinstaller\operator_assist.spec"
 $innoScriptPath = Join-Path $projectRoot "packaging\inno\OperatorAssist.iss"
+$configuredTempRoot = $TempRoot
+if ([string]::IsNullOrWhiteSpace($configuredTempRoot)) {
+    $configuredTempRoot = $env:OPERATOR_ASSIST_BUILD_TEMP
+}
+if ([string]::IsNullOrWhiteSpace($configuredTempRoot)) {
+    $configuredTempRoot = $env:TEMP
+}
+if ([string]::IsNullOrWhiteSpace($configuredTempRoot)) {
+    throw "No build temporary directory is configured. Pass -TempRoot or set OPERATOR_ASSIST_BUILD_TEMP."
+}
+$processTempRoot = [System.IO.Path]::GetFullPath($configuredTempRoot)
+$pyInstallerConfigRoot = Join-Path $processTempRoot "OPERATOR_ASSIST\pyinstaller-config"
 
 function Write-Step {
     param([string]$Message)
@@ -211,8 +224,15 @@ if (-not $NoClean) {
 Ensure-Directory -TargetPath $releaseRoot
 Ensure-Directory -TargetPath (Join-Path $releaseRoot "portable")
 Ensure-Directory -TargetPath $publishRoot
+Ensure-Directory -TargetPath $pyInstallerConfigRoot
+$env:TEMP = $processTempRoot
+$env:TMP = $processTempRoot
+$env:TMPDIR = $processTempRoot
+$env:PYINSTALLER_CONFIG_DIR = $pyInstallerConfigRoot
 
 Write-Step "Building PyInstaller bundle"
+Write-Host "Build temporary directory: $processTempRoot"
+Write-Host "PyInstaller cache: $pyInstallerConfigRoot"
 Push-Location $projectRoot
 try {
     Invoke-Python -PythonCommand $python -Arguments @(

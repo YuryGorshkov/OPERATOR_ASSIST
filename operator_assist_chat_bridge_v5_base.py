@@ -13,7 +13,7 @@ from operator_assist_runtime.runtime_paths import application_root, bundle_root,
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.5.2"
+WRAPPER_VERSION = "1.5.3"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -255,7 +255,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
             self.ui_queue.put(("hint", f"{self.label}: {message}"))
 
 
-class PreciseSpeakerInputWorker(_base_mod._base.TranscriptionWorker):
+class PreciseInputTranscriptionWorker(_base_mod._base.TranscriptionWorker):
     def __init__(self, label, model, device_id, ui_queue, precise_bundle):
         super().__init__(label, model, device_id, ui_queue)
         self.precise_bundle = precise_bundle
@@ -890,7 +890,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                 raise RuntimeError("Точный режим Whisper еще загружается.")
             if speaker_source["kind"] == "loopback":
                 return PreciseLoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue, precise_bundle)
-            return PreciseSpeakerInputWorker("speaker", self.model, speaker_source["device_id"], self.ui_queue, precise_bundle)
+            return PreciseInputTranscriptionWorker("speaker", None, speaker_source["device_id"], self.ui_queue, precise_bundle)
 
         if speaker_source["kind"] == "loopback":
             return LoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue)
@@ -970,7 +970,21 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         try:
             if mic_enabled:
-                self.workers["me"] = runtime.TranscriptionWorker("me", self.model, mic_device["id"], self.ui_queue)
+                if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE:
+                    self.workers["me"] = PreciseInputTranscriptionWorker(
+                        "me",
+                        None,
+                        mic_device["id"],
+                        self.ui_queue,
+                        self.precise_engine_bundle,
+                    )
+                else:
+                    self.workers["me"] = runtime.TranscriptionWorker(
+                        "me",
+                        self.model,
+                        mic_device["id"],
+                        self.ui_queue,
+                    )
             if speaker_enabled:
                 self.workers["speaker"] = self._build_speaker_worker(speaker_source)
             for worker in self.workers.values():
@@ -991,13 +1005,12 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
 
         self.status_var.set("Распознавание запущено")
         if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE and self.precise_engine_bundle is not None:
-            vosk_hint = (
-                f"Vosk: {self._current_model_name()}. "
-                if vosk_required
-                else "Vosk не загружался: он не нужен выбранному маршруту. "
-            )
+            if mic_enabled:
+                route_hint = "Оба канала используют одну общую модель Whisper. "
+            else:
+                route_hint = "Vosk не загружался: он не нужен выбранному маршруту. "
             self.hint_var.set(
-                f"{vosk_hint}Собеседник идет через {speaker_source['mode_label']} и точный Whisper "
+                f"{route_hint}Собеседник идет через {speaker_source['mode_label']} и точный Whisper "
                 f"({self.precise_engine_bundle.device}, {self.precise_engine_bundle.compute_type}, "
                 f"{self.precise_engine_bundle.model_name})."
             )
@@ -1013,6 +1026,7 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.recent_mic_finals.clear()
         self.recent_speaker_finals.clear()
         self.pending_mic_finals.clear()
+        self._clear_committed_mic_tracking()
         self._refresh_audio_diagnostics()
         self._set_audio_controls_running_state(True)
         self._update_start_button_state()

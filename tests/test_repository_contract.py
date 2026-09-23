@@ -133,6 +133,17 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn(assemble, build_script)
         self.assertLess(build_script.index(reset), build_script.index(assemble))
 
+    def test_release_build_can_keep_temporary_data_off_the_system_drive(self):
+        build_script = (
+            PROJECT_ROOT / "scripts" / "Build-Release.ps1"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('[string]$TempRoot = ""', build_script)
+        self.assertIn("$env:OPERATOR_ASSIST_BUILD_TEMP", build_script)
+        self.assertIn("$env:TEMP = $processTempRoot", build_script)
+        self.assertIn("$env:TMP = $processTempRoot", build_script)
+        self.assertIn("$env:PYINSTALLER_CONFIG_DIR = $pyInstallerConfigRoot", build_script)
+
     def test_branding_assets_exist(self):
         expected_files = [
             PROJECT_ROOT / "assets" / "logo-enot.png",

@@ -2,16 +2,26 @@ import importlib
 import importlib.util
 import json
 
-from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
+from operator_assist_runtime.runtime_paths import (
+    application_root,
+    bundle_root,
+    configure_process_storage,
+    is_frozen,
+)
 from operator_assist_runtime.technical_terms import (
     TechnicalTermsManager,
     serialize_terms_payload,
 )
 
 
-WRAPPER_VERSION = "1.5.2"
+WRAPPER_VERSION = "1.5.3"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
+PROCESS_STORAGE_LAYOUT = configure_process_storage(
+    CURRENT_DIR,
+    bundle_dir=BUNDLE_DIR,
+    frozen=is_frozen(),
+)
 BASE_SCRIPT_CANDIDATES = [
     BUNDLE_DIR / "operator_assist_chat_bridge_v5_base.py",
 ]

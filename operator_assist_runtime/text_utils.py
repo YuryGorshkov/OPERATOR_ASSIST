@@ -1,6 +1,7 @@
 """Shared text normalization helpers for OPERATOR_ASSIST."""
 
 from difflib import SequenceMatcher
+import re
 
 
 def normalize_name(value):
@@ -55,14 +56,22 @@ def are_similar_duplicates(
     ):
         return True
 
-    left_tokens = set(left_norm.split())
-    right_tokens = set(right_norm.split())
+    left_token_list = re.findall(r"\w+", left_norm.replace("ё", "е"))
+    right_token_list = re.findall(r"\w+", right_norm.replace("ё", "е"))
+    left_tokens = set(left_token_list)
+    right_tokens = set(right_token_list)
     shared_tokens = left_tokens & right_tokens
     if shared_tokens and len(shared_tokens) >= min_shared_tokens:
         shorter_token_count = min(len(left_tokens), len(right_tokens))
         if shorter_token_count and (
             len(shared_tokens) / float(shorter_token_count)
         ) >= shared_token_ratio:
+            return True
+
+    if left_token_list and right_token_list:
+        token_match = SequenceMatcher(None, left_token_list, right_token_list).find_longest_match()
+        shorter_token_count = min(len(left_token_list), len(right_token_list))
+        if token_match.size >= 5 and token_match.size / float(shorter_token_count) >= 0.35:
             return True
 
     return SequenceMatcher(None, left_norm, right_norm).ratio() >= ratio

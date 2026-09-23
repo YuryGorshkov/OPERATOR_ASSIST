@@ -7,6 +7,8 @@ venv/
 # Local runtime data
 logs/
 transcripts/
+temp/
+cache/
 backups/*
 !backups/
 !backups/operator_assist_chat_bridge_base.py
