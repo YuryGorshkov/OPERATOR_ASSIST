@@ -65,6 +65,21 @@ class TranscriptionWorkerQueueTests(unittest.TestCase):
         self.assertEqual([(b"\x02\x00", 41.25)], calls)
         self.assertEqual((b"\x02\x00", 41.25), worker.audio_queue.get_nowait())
 
+    def test_time_aware_echo_mute_keeps_continuous_pcm_in_queue(self):
+        worker = self._worker()
+        worker.audio_preprocessor = type(
+            "EchoMute",
+            (),
+            {"process_pcm16_at": staticmethod(lambda chunk, _captured_at: bytes(len(chunk)))},
+        )()
+
+        worker._enqueue_captured_chunk(b"\x05\x00\x06\x00", 51.25)
+
+        queued_chunk, queued_at = worker.audio_queue.get_nowait()
+        self.assertEqual(b"\x00\x00\x00\x00", queued_chunk)
+        self.assertEqual(51.25, queued_at)
+        self.assertEqual(0, worker.suppressed_chunk_count)
+
 
 if __name__ == "__main__":
     unittest.main()

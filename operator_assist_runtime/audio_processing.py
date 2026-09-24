@@ -89,7 +89,7 @@ def loopback_frames_to_pcm16(frames, *, stronger_channel_ratio=1.75):
 
 
 class CrossChannelEchoGate:
-    """Drop microphone blocks that are almost entirely a system-audio copy."""
+    """Replace echo-only microphone blocks with same-length PCM silence."""
 
     def __init__(self, config=None):
         self.config = config or CrossChannelEchoConfig()
@@ -220,7 +220,9 @@ class CrossChannelEchoGate:
             return chunk
 
         self.suppressed_chunks += 1
-        return b""
+        # Pause-aware Whisper owns silence detection and requires a continuous
+        # PCM timeline, so echo is muted rather than converted to a gap marker.
+        return bytes(len(chunk))
 
     def stats(self):
         return {

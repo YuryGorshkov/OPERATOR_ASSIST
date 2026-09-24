@@ -110,7 +110,7 @@ class AudioProcessingTests(unittest.TestCase):
         second = gate.process_pcm16_at(reference_2, 10.27)
 
         self.assertNotEqual(b"", first)
-        self.assertEqual(b"", second)
+        self.assertEqual(bytes(len(reference_2)), second)
         self.assertEqual(1, gate.suppressed_chunks)
 
     def test_cross_channel_echo_gate_keeps_independent_microphone_speech(self):
@@ -146,7 +146,7 @@ class AudioProcessingTests(unittest.TestCase):
         gate.observe_reference(reference.astype(np.int16).tobytes(), 35.0)
         result = gate.process_pcm16_at(leaked, 35.02)
 
-        self.assertEqual(b"", result)
+        self.assertEqual(bytes(len(leaked)), result)
         self.assertGreater(gate.last_correlation, 0.9)
 
     def test_cross_channel_echo_gate_ignores_stale_reference(self):
