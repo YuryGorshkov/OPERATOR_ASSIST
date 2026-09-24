@@ -69,7 +69,7 @@ from operator_assist_runtime.session_routing import (
 
 
 APP_TITLE = "OPERATOR_ASSIST"
-APP_VERSION = "1.5.5"
+APP_VERSION = "1.5.6"
 ROOT_DIR = application_root(__file__, levels_up=1)
 BUNDLE_DIR = bundle_root(__file__)
 RUN_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -551,6 +551,7 @@ class TranscriptionWorker:
         self.rate_state = None
         self.device_name = ""
         self.audio_preprocessor = build_audio_preprocessor(label)
+        self.audio_observer = None
         self.drop_count = 0
         self.callback_warning_count = 0
         self.chunk_count = 0
@@ -633,11 +634,14 @@ class TranscriptionWorker:
         self.last_level_percent = level_percent
         self.ui_queue.put(("level", self.label, level_percent, clipping_percent))
 
-    def _process_chunk_for_recognition(self, chunk):
+    def _process_chunk_for_recognition(self, chunk, captured_at=None):
         if not chunk or self.audio_preprocessor is None:
             return chunk
 
         try:
+            process_at = getattr(self.audio_preprocessor, "process_pcm16_at", None)
+            if process_at is not None:
+                return process_at(chunk, captured_at)
             return self.audio_preprocessor.process_pcm16(chunk)
         except Exception:
             LOGGER.exception("[%s] Audio preprocessor failed, disabling it", self.label)
@@ -686,7 +690,14 @@ class TranscriptionWorker:
         if not self.stop_event.is_set() and chunk:
             self.chunk_count += 1
             self._emit_level(chunk)
-            chunk = self._process_chunk_for_recognition(chunk)
+            observer = getattr(self, "audio_observer", None)
+            if observer is not None:
+                try:
+                    observer(chunk, captured_at)
+                except Exception:
+                    LOGGER.exception("[%s] Audio observer failed, disabling it", self.label)
+                    self.audio_observer = None
+            chunk = self._process_chunk_for_recognition(chunk, captured_at)
             if not chunk:
                 self.suppressed_chunk_count += 1
                 self._queue_gap_marker(captured_at)

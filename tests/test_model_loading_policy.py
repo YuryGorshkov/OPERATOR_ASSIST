@@ -169,6 +169,34 @@ class ModelLoadingPolicyTests(unittest.TestCase):
             worker.precise_config,
         )
 
+    def test_loopback_source_enables_pre_asr_echo_gate(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+
+        self.assertTrue(app._speaker_source_supports_echo_reference({"kind": "loopback"}))
+
+    def test_regular_second_microphone_does_not_enable_echo_gate(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+
+        self.assertFalse(
+            app._speaker_source_supports_echo_reference(
+                {"kind": "input", "name": "USB Conference Microphone"}
+            )
+        )
+
+    def test_echo_gate_is_shared_by_system_audio_and_microphone_workers(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+        microphone_worker = SimpleNamespace(audio_preprocessor=None)
+        speaker_worker = SimpleNamespace(audio_observer=None)
+        app.workers = {"me": microphone_worker, "speaker": speaker_worker}
+
+        enabled = app._configure_cross_channel_echo_gate(
+            {"kind": "loopback", "label": "WASAPI loopback: Speakers"}
+        )
+
+        self.assertTrue(enabled)
+        self.assertIs(app.cross_channel_echo_gate, microphone_worker.audio_preprocessor)
+        self.assertIs(app.cross_channel_echo_gate, speaker_worker.audio_observer.__self__)
+
     def test_operator_only_route_still_requires_vosk(self):
         app = self._app_for_route(
             mic_enabled=True,

@@ -13,10 +13,13 @@ from operator_assist_runtime.pause_recognition import (
     PauseAwareWhisperEngine,
 )
 from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
-from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
+from operator_assist_runtime.audio_processing import (
+    CrossChannelEchoGate,
+    loopback_frames_to_pcm16,
+)
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.5.5"
+WRAPPER_VERSION = "1.5.6"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -58,6 +61,8 @@ DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG = PauseAwareWhisperConfig(
 REALTIME_SPEAKER_WHISPER_CONFIG = PauseAwareWhisperConfig(
     preview_enabled=False,
 )
+
+CROSS_CHANNEL_REFERENCE_LEAD_SEC = 0.04
 
 
 def load_base_module():
@@ -143,6 +148,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
         super().__init__(label, model, -1, ui_queue)
         self.source = source
         self.capture_thread = None
+        self.capture_ready_event = _base_mod._base.threading.Event()
         self.device_name = source["name"]
         self.channels = max(1, int(source.get("channels") or 2))
         self.input_samplerate = int(source.get("default_samplerate") or 48000)
@@ -152,6 +158,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
         runtime.LOGGER.info("[%s] Starting WASAPI loopback worker. source=%s", self.label, self.source)
 
         self.stop_event.clear()
+        self.capture_ready_event.clear()
         self.thread = runtime.threading.Thread(
             target=self._run_recognition,
             daemon=True,
@@ -258,6 +265,7 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
                 )
 
                 with microphone.recorder(samplerate=samplerate, channels=self.channels) as recorder:
+                    self.capture_ready_event.set()
                     while not self.stop_event.is_set():
                         frames = recorder.record(numframes=blocksize)
                         chunk = self._frames_to_pcm(frames)
@@ -340,7 +348,58 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.mic_devices = []
         self.speaker_sources = []
         self.default_loopback_label = None
+        self.cross_channel_echo_gate = None
         super().__init__(root)
+
+    def _speaker_source_supports_echo_reference(self, source):
+        if source.get("kind") == "loopback":
+            return True
+
+        source_name = " ".join(
+            str(source.get(key) or "")
+            for key in ("name", "label", "mode_label")
+        )
+        normalized = _base_mod._base.normalize_name(source_name)
+        reference_keywords = (
+            "стерео",
+            "stereo",
+            "what u hear",
+            "what you hear",
+            "monitor",
+            "output",
+            "cable",
+            "virtual",
+        )
+        return any(keyword in normalized for keyword in reference_keywords)
+
+    def _configure_cross_channel_echo_gate(self, speaker_source):
+        self.cross_channel_echo_gate = None
+        if not self._speaker_source_supports_echo_reference(speaker_source):
+            return False
+
+        microphone_worker = self.workers.get("me")
+        speaker_worker = self.workers.get("speaker")
+        if microphone_worker is None or speaker_worker is None:
+            return False
+
+        gate = CrossChannelEchoGate()
+        microphone_worker.audio_preprocessor = gate
+        speaker_worker.audio_observer = gate.observe_reference
+        self.cross_channel_echo_gate = gate
+        _base_mod._base.LOGGER.info(
+            "Enabled pre-ASR acoustic echo gate. source=%s correlation=%.2f attack_chunks=%s",
+            speaker_source.get("label") or speaker_source.get("name"),
+            gate.config.min_correlation,
+            gate.config.attack_chunks,
+        )
+        return True
+
+    def stop_transcription(self):
+        gate = getattr(self, "cross_channel_echo_gate", None)
+        super().stop_transcription()
+        if gate is not None:
+            _base_mod._base.LOGGER.info("Pre-ASR acoustic echo gate stopped. stats=%s", gate.stats())
+        self.cross_channel_echo_gate = None
 
     def _build_ui(self):
         runtime = _base_mod._base
@@ -1048,8 +1107,19 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                     )
             if speaker_enabled:
                 self.workers["speaker"] = self._build_speaker_worker(speaker_source)
-            for worker in self.workers.values():
-                worker.start()
+            echo_gate_enabled = False
+            if mic_enabled and speaker_enabled:
+                echo_gate_enabled = self._configure_cross_channel_echo_gate(speaker_source)
+            for label in ("speaker", "me"):
+                worker = self.workers.get(label)
+                if worker is not None:
+                    if label == "me" and echo_gate_enabled:
+                        speaker_worker = self.workers.get("speaker")
+                        ready_event = getattr(speaker_worker, "capture_ready_event", None)
+                        if ready_event is not None:
+                            ready_event.wait(timeout=0.5)
+                        runtime.time.sleep(CROSS_CHANNEL_REFERENCE_LEAD_SEC)
+                    worker.start()
         except Exception as error:
             runtime.LOGGER.exception("Failed to start transcription workers")
             self.stop_transcription()
@@ -1071,6 +1141,8 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                     "Оба канала используют одну модель Whisper: собеседник — точный профиль, "
                     "микрофон — облегчённый профиль без лишних предварительных проходов. "
                 )
+                if echo_gate_enabled:
+                    route_hint += "Акустический дубль из системного канала отсекается до распознавания. "
             else:
                 route_hint = "Vosk не загружался: он не нужен выбранному маршруту. "
             self.hint_var.set(
@@ -1079,8 +1151,14 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                 f"{self.precise_engine_bundle.model_name})."
             )
         elif speaker_enabled:
+            echo_hint = (
+                " Акустический дубль из системного канала отсекается до распознавания."
+                if echo_gate_enabled
+                else ""
+            )
             self.hint_var.set(
-                f"Активная модель: {self._recognition_model_name()}. Собеседник захватывается через {speaker_source['mode_label']}."
+                f"Активная модель: {self._recognition_model_name()}. "
+                f"Собеседник захватывается через {speaker_source['mode_label']}.{echo_hint}"
             )
         else:
             self.hint_var.set(f"Активная модель: {self._recognition_model_name()}. Работает только канал оператора.")
