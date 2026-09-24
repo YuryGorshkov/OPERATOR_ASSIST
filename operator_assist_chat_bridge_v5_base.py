@@ -387,9 +387,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         speaker_worker.audio_observer = gate.observe_reference
         self.cross_channel_echo_gate = gate
         _base_mod._base.LOGGER.info(
-            "Enabled pre-ASR acoustic echo gate. source=%s correlation=%.2f attack_chunks=%s",
+            "Enabled pre-ASR acoustic echo gate. source=%s correlation=%.2f coherence=%.2f attack_chunks=%s",
             speaker_source.get("label") or speaker_source.get("name"),
             gate.config.min_correlation,
+            gate.config.min_coherence,
             gate.config.attack_chunks,
         )
         return True

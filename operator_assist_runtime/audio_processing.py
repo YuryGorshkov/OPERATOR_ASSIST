@@ -32,9 +32,13 @@ class CrossChannelEchoConfig:
     max_lag_seconds: float = 0.12
     analysis_downsample: int = 4
     min_reference_rms: float = 120.0
-    min_microphone_rms: float = 90.0
+    min_microphone_rms: float = 60.0
     min_correlation: float = 0.78
     max_residual_ratio: float = 0.65
+    coherence_frame_samples: int = 512
+    coherence_hop_samples: int = 256
+    min_coherence_frames: int = 6
+    min_coherence: float = 0.32
     attack_chunks: int = 2
 
 
@@ -97,9 +101,14 @@ class CrossChannelEchoGate:
         self._reference_lock = threading.Lock()
         self._echo_streak = 0
         self.matched_chunks = 0
+        self.waveform_matched_chunks = 0
+        self.coherence_matched_chunks = 0
         self.suppressed_chunks = 0
         self.last_correlation = 0.0
         self.last_residual_ratio = 1.0
+        self.last_coherence = 0.0
+        self.peak_correlation = 0.0
+        self.peak_coherence = 0.0
         self.last_reference_offset_seconds = None
 
     @staticmethod
@@ -181,6 +190,66 @@ class CrossChannelEchoGate:
         residual_ratio = math.sqrt(float(np.dot(residual, residual)) / left_energy)
         return normalized_correlation, residual_ratio
 
+    def _coherence_frames(self, samples):
+        frame_size = max(64, int(self.config.coherence_frame_samples))
+        hop_size = max(1, int(self.config.coherence_hop_samples))
+        if samples.size < frame_size:
+            return np.empty((0, 0), dtype=np.complex64)
+
+        samples = samples.astype(np.float32, copy=False)
+        samples = samples - float(np.mean(samples))
+        window = np.hanning(frame_size).astype(np.float32)
+        frames = np.stack(
+            [
+                samples[offset : offset + frame_size] * window
+                for offset in range(0, samples.size - frame_size + 1, hop_size)
+            ]
+        )
+        spectra = np.fft.rfft(frames, axis=1)
+        low_bin = max(1, int(math.ceil(80.0 * frame_size / self.config.sample_rate)))
+        high_bin = min(
+            spectra.shape[1],
+            int(math.floor(7000.0 * frame_size / self.config.sample_rate)) + 1,
+        )
+        return spectra[:, low_bin:high_bin].astype(np.complex64, copy=False)
+
+    def _coherence_score(self, microphone_raw, reference_raw):
+        microphone = self._coherence_frames(microphone_raw)
+        reference = self._coherence_frames(reference_raw)
+        minimum_frames = max(2, int(self.config.min_coherence_frames))
+        if microphone.shape[0] < minimum_frames or reference.shape[0] < minimum_frames:
+            return 0.0
+
+        hop_seconds = self.config.coherence_hop_samples / float(self.config.sample_rate)
+        max_lag_frames = max(1, int(round(self.config.max_lag_seconds / hop_seconds)))
+        best_score = 0.0
+        for lag in range(-max_lag_frames, max_lag_frames + 1):
+            if lag >= 0:
+                overlap = min(microphone.shape[0] - lag, reference.shape[0])
+                left = microphone[lag : lag + overlap]
+                right = reference[:overlap]
+            else:
+                offset = -lag
+                overlap = min(microphone.shape[0], reference.shape[0] - offset)
+                left = microphone[:overlap]
+                right = reference[offset : offset + overlap]
+            if left.shape[0] < minimum_frames:
+                continue
+
+            cross_power = np.mean(left * np.conjugate(right), axis=0)
+            microphone_power = np.mean(np.abs(left) ** 2, axis=0)
+            reference_power = np.mean(np.abs(right) ** 2, axis=0)
+            denominator = microphone_power * reference_power
+            coherence = (np.abs(cross_power) ** 2) / np.maximum(denominator, 1e-9)
+            active = reference_power > float(np.max(reference_power)) * 1e-4
+            if np.count_nonzero(active) < 8:
+                continue
+
+            weights = np.sqrt(reference_power[active])
+            score = float(np.average(np.clip(coherence[active], 0.0, 1.0), weights=weights))
+            best_score = max(best_score, score)
+        return best_score
+
     def process_pcm16_at(self, chunk, captured_at):
         microphone_raw = _int16_samples_to_float32(chunk)
         if self._rms(microphone_raw) < self.config.min_microphone_rms:
@@ -188,33 +257,48 @@ class CrossChannelEchoGate:
             return chunk
 
         microphone = self._prepare_analysis_samples(chunk)
-        best = (0.0, 1.0, None)
+        best = (0.0, 1.0, 0.0, None)
         for reference_time, reference_chunk in self._candidate_references(float(captured_at)):
             reference_raw = _int16_samples_to_float32(reference_chunk)
             if self._rms(reference_raw) < self.config.min_reference_rms:
                 continue
             reference = self._prepare_analysis_samples(reference_chunk)
             correlation, residual_ratio = self._score_candidate(microphone, reference)
-            if correlation > best[0]:
+            coherence = self._coherence_score(microphone_raw, reference_raw)
+            if correlation > best[0] or coherence > best[2]:
+                reference_offset = abs(float(captured_at) - reference_time)
+                best_correlation = max(best[0], correlation)
+                best_residual = residual_ratio if correlation >= best[0] else best[1]
+                best_coherence = max(best[2], coherence)
                 best = (
-                    correlation,
-                    residual_ratio,
-                    abs(float(captured_at) - reference_time),
+                    best_correlation,
+                    best_residual,
+                    best_coherence,
+                    reference_offset,
                 )
 
-        correlation, residual_ratio, reference_offset = best
+        correlation, residual_ratio, coherence, reference_offset = best
         self.last_correlation = correlation
         self.last_residual_ratio = residual_ratio
+        self.last_coherence = coherence
+        self.peak_correlation = max(self.peak_correlation, correlation)
+        self.peak_coherence = max(self.peak_coherence, coherence)
         self.last_reference_offset_seconds = reference_offset
-        echo_only = (
+        waveform_match = (
             correlation >= self.config.min_correlation
             and residual_ratio <= self.config.max_residual_ratio
         )
+        coherence_match = coherence >= self.config.min_coherence
+        echo_only = waveform_match or coherence_match
         if not echo_only:
             self._echo_streak = 0
             return chunk
 
         self.matched_chunks += 1
+        if waveform_match:
+            self.waveform_matched_chunks += 1
+        if coherence_match:
+            self.coherence_matched_chunks += 1
         self._echo_streak += 1
         if self._echo_streak < max(1, self.config.attack_chunks):
             return chunk
@@ -227,9 +311,14 @@ class CrossChannelEchoGate:
     def stats(self):
         return {
             "matched_chunks": self.matched_chunks,
+            "waveform_matched_chunks": self.waveform_matched_chunks,
+            "coherence_matched_chunks": self.coherence_matched_chunks,
             "suppressed_chunks": self.suppressed_chunks,
             "last_correlation": self.last_correlation,
             "last_residual_ratio": self.last_residual_ratio,
+            "last_coherence": self.last_coherence,
+            "peak_correlation": self.peak_correlation,
+            "peak_coherence": self.peak_coherence,
             "last_reference_offset_seconds": self.last_reference_offset_seconds,
         }
 

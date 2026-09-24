@@ -11,11 +11,12 @@ Pre-ASR acoustic echo suppression release.
 Highlights:
 
 - compare microphone PCM against the synchronized WASAPI loopback or Stereo Mix reference before speech recognition
-- suppress only strongly correlated echo-only blocks after a conservative two-block confirmation
+- combine waveform correlation with spectral coherence so room-colored headset/speaker leakage can be recognized before ASR
+- suppress only strongly matched echo-only blocks after a conservative two-block confirmation
 - preserve independent operator speech and double-talk instead of muting the microphone whenever system audio is active
 - start the system-audio capture slightly ahead of the microphone so matching reference blocks are available without adding recognition backlog
 - keep the existing post-recognition duplicate guard as a fallback for acoustic copies that do not meet the conservative PCM threshold
-- add correlation, stale-reference, double-talk, delayed acoustic-path and worker-wiring regression coverage
+- add correlation, coherence, stale-reference, double-talk, delayed acoustic-path and worker-wiring regression coverage
 
 ## v1.5.5 - 2026-09-24
 

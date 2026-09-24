@@ -149,6 +149,57 @@ class AudioProcessingTests(unittest.TestCase):
         self.assertEqual(bytes(len(leaked)), result)
         self.assertGreater(gate.last_correlation, 0.9)
 
+    def test_cross_channel_echo_gate_uses_coherence_for_room_colored_echo(self):
+        gate = CrossChannelEchoGate(
+            CrossChannelEchoConfig(
+                attack_chunks=1,
+                min_correlation=0.95,
+                min_coherence=0.30,
+            )
+        )
+        reference = np.frombuffer(
+            _pcm_signal(36, count=4000), dtype=np.int16
+        ).astype(np.float32)
+        rng = np.random.default_rng(37)
+        impulse = np.exp(-np.arange(180) / 25.0) * rng.normal(0.0, 1.0, 180)
+        impulse[0] += 3.0
+        impulse /= np.sum(np.abs(impulse))
+        leaked = np.convolve(reference, impulse, mode="full")[: reference.size]
+        leaked = np.tanh(leaked / 2500.0) * 2300.0
+        leaked = np.concatenate((np.zeros(400), leaked[:-400]))
+        leaked += rng.normal(0.0, 40.0, leaked.size)
+        leaked_pcm = np.clip(leaked, -32768, 32767).astype(np.int16).tobytes()
+
+        gate.observe_reference(reference.astype(np.int16).tobytes(), 36.0)
+        result = gate.process_pcm16_at(leaked_pcm, 36.02)
+
+        self.assertEqual(bytes(len(leaked_pcm)), result)
+        self.assertLess(gate.last_correlation, gate.config.min_correlation)
+        self.assertGreaterEqual(gate.last_coherence, gate.config.min_coherence)
+        self.assertEqual(1, gate.coherence_matched_chunks)
+
+    def test_cross_channel_coherence_keeps_operator_during_room_echo(self):
+        gate = CrossChannelEchoGate(CrossChannelEchoConfig(attack_chunks=1))
+        reference = np.frombuffer(
+            _pcm_signal(38, count=4000), dtype=np.int16
+        ).astype(np.float32)
+        rng = np.random.default_rng(39)
+        impulse = np.exp(-np.arange(180) / 25.0) * rng.normal(0.0, 1.0, 180)
+        impulse[0] += 3.0
+        impulse /= np.sum(np.abs(impulse))
+        leaked = np.convolve(reference, impulse, mode="full")[: reference.size]
+        leaked = np.concatenate((np.zeros(320), leaked[:-320]))
+        operator = np.frombuffer(
+            _pcm_signal(40, amplitude=900, count=4000), dtype=np.int16
+        ).astype(np.float32)
+        mixed_pcm = np.clip(leaked + operator, -32768, 32767).astype(np.int16).tobytes()
+
+        gate.observe_reference(reference.astype(np.int16).tobytes(), 38.0)
+        result = gate.process_pcm16_at(mixed_pcm, 38.02)
+
+        self.assertEqual(mixed_pcm, result)
+        self.assertEqual(0, gate.suppressed_chunks)
+
     def test_cross_channel_echo_gate_ignores_stale_reference(self):
         gate = CrossChannelEchoGate(CrossChannelEchoConfig(attack_chunks=1))
         reference = _pcm_signal(40)
