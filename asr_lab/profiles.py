@@ -67,6 +67,12 @@ PROFILES = {
             pause_flush_seconds=16.0,
         ),
         Profile(
+            "pause_flush_8",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_flush_seconds=8.0,
+        ),
+        Profile(
             "pause_overlap_1_5",
             engine_kind="pause",
             preprocessing=False,
@@ -107,6 +113,22 @@ PROFILES = {
             pause_min_window_seconds=1.5,
             pause_beam_size=5,
             pause_preview_after_seconds=1.5,
+        ),
+        Profile(
+            "operator_latency_first",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_beam_size=1,
+            pause_best_of=1,
+            pause_preview_enabled=False,
+        ),
+        Profile(
+            "operator_balanced",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_beam_size=3,
+            pause_best_of=3,
+            pause_preview_enabled=False,
         ),
         Profile(
             "pause_beam_5",

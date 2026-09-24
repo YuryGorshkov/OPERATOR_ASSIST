@@ -14,7 +14,7 @@ from operator_assist_runtime.technical_terms import (
 )
 
 
-WRAPPER_VERSION = "1.5.4"
+WRAPPER_VERSION = "1.5.5"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 PROCESS_STORAGE_LAYOUT = configure_process_storage(

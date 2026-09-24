@@ -4,6 +4,23 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
+## v1.5.5 - 2026-09-24
+
+Dual-channel precise-mode performance release.
+
+Highlights:
+
+- use a balanced beam-3 final decoder without provisional passes for the operator microphone while preserving the full beam-5 final decoder for caller/system audio
+- remove provisional caller decoding from the production path after live telemetry showed that it delayed final results and filled the capture queue
+- preserve the caller profile's 9.74% WER, 4.81% CER and all 7 expected critical terms on the same 11 verified podcast clips
+- reduce caller-profile engine time from 106.82 to 81.73 seconds, a 23.5% reduction, without changing final accuracy metrics
+- reduce measured live mean final-text latency from 6.96 to 5.71 seconds and maximum latency from 9.19 to 8.19 seconds on the development machine
+- eliminate dropped audio blocks in the repeated 84-second live test while reducing maximum observed queue depth from 32 to 30
+- add reproducible experimental profiles and regression coverage for the selected operator and caller configurations
+- pass all 157 repository tests with temporary test data kept on the application drive
+
+These measurements use the same local GPU, verified development corpus and live control recording. They are not a general latency or accuracy guarantee.
+
 ## v1.5.4 - 2026-09-24
 
 Precise-mode latency tuning release.

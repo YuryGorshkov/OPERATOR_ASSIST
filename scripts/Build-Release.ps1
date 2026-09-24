@@ -1,5 +1,6 @@
 param(
     [string]$TempRoot = "",
+    [string]$OutputRoot = "",
     [switch]$SkipTests,
     [switch]$SkipInstaller,
     [switch]$SkipZip,
@@ -10,7 +11,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$releaseRoot = Join-Path $projectRoot "release"
+$configuredOutputRoot = $OutputRoot
+if ([string]::IsNullOrWhiteSpace($configuredOutputRoot)) {
+    $configuredOutputRoot = Join-Path $projectRoot "release"
+}
+$releaseRoot = [System.IO.Path]::GetFullPath($configuredOutputRoot)
 $pyInstallerWorkRoot = Join-Path $releaseRoot "_pyinstaller_work"
 $pyInstallerDistRoot = Join-Path $releaseRoot "_pyinstaller_dist"
 $portableRoot = Join-Path $releaseRoot "portable\OPERATOR_ASSIST"
@@ -337,7 +342,7 @@ if (-not $SkipInstaller) {
         Write-Warning "Inno Setup 6 compiler was not found. Portable build is ready, installer step skipped."
     } else {
         Ensure-Directory -TargetPath $installerRoot
-        & $innoCompiler "/DMyAppVersion=$projectVersion" "/DMyOutputBaseFilename=OPERATOR_ASSIST-Setup-$projectVersion" $innoScriptPath
+        & $innoCompiler "/DMyAppVersion=$projectVersion" "/DMyPortableRoot=$portableRoot" "/DMyOutputRoot=$installerRoot" "/DMyOutputBaseFilename=OPERATOR_ASSIST-Setup-$projectVersion" $innoScriptPath
         if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup compiler failed with exit code $LASTEXITCODE"
         }

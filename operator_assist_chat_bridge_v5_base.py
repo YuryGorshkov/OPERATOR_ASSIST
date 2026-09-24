@@ -8,12 +8,15 @@ from pathlib import Path
 from operator_assist_runtime.recognition_engines import (
     load_precise_engine_bundle,
 )
-from operator_assist_runtime.pause_recognition import PauseAwareWhisperEngine
+from operator_assist_runtime.pause_recognition import (
+    PauseAwareWhisperConfig,
+    PauseAwareWhisperEngine,
+)
 from operator_assist_runtime.runtime_paths import application_root, bundle_root, is_frozen
 from operator_assist_runtime.audio_processing import loopback_frames_to_pcm16
 from operator_assist_runtime.session_routing import select_best_signal_source
 
-WRAPPER_VERSION = "1.5.4"
+WRAPPER_VERSION = "1.5.5"
 CURRENT_DIR = application_root(__file__)
 BUNDLE_DIR = bundle_root(__file__)
 BASE_SCRIPT_CANDIDATES = [
@@ -39,6 +42,22 @@ except Exception as error:
     _soundcard = None
     LOOPBACK_AVAILABLE = False
     LOOPBACK_IMPORT_ERROR = str(error)
+
+
+# A clean close-talk microphone does not need the expensive search used for
+# remote/system audio. Keeping previews off also prevents two channels from
+# repeatedly competing for the same GPU model during acoustic echo.
+DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG = PauseAwareWhisperConfig(
+    beam_size=3,
+    best_of=3,
+    preview_enabled=False,
+)
+
+# Preview decoding competes with final decoding for the same GPU and can leave
+# live audio waiting in the capture queue. The final search remains unchanged.
+REALTIME_SPEAKER_WHISPER_CONFIG = PauseAwareWhisperConfig(
+    preview_enabled=False,
+)
 
 
 def load_base_module():
@@ -256,28 +275,50 @@ class LoopbackTranscriptionWorker(_base_mod._base.TranscriptionWorker):
 
 
 class PreciseInputTranscriptionWorker(_base_mod._base.TranscriptionWorker):
-    def __init__(self, label, model, device_id, ui_queue, precise_bundle):
+    def __init__(
+        self,
+        label,
+        model,
+        device_id,
+        ui_queue,
+        precise_bundle,
+        *,
+        config=None,
+    ):
         super().__init__(label, model, device_id, ui_queue)
         self.precise_bundle = precise_bundle
+        self.precise_config = config
         self.audio_preprocessor = None
 
     def _create_recognition_engine(self):
         return PauseAwareWhisperEngine(
             self.precise_bundle,
             text_postprocessor=_base_mod._base.apply_technical_term_replacements,
+            config=self.precise_config,
         )
 
 
 class PreciseLoopbackTranscriptionWorker(LoopbackTranscriptionWorker):
-    def __init__(self, label, model, source, ui_queue, precise_bundle):
+    def __init__(
+        self,
+        label,
+        model,
+        source,
+        ui_queue,
+        precise_bundle,
+        *,
+        config=None,
+    ):
         super().__init__(label, model, source, ui_queue)
         self.precise_bundle = precise_bundle
+        self.precise_config = config
         self.audio_preprocessor = None
 
     def _create_recognition_engine(self):
         return PauseAwareWhisperEngine(
             self.precise_bundle,
             text_postprocessor=_base_mod._base.apply_technical_term_replacements,
+            config=self.precise_config,
         )
 
 
@@ -889,8 +930,22 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
             if precise_bundle is None:
                 raise RuntimeError("Точный режим Whisper еще загружается.")
             if speaker_source["kind"] == "loopback":
-                return PreciseLoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue, precise_bundle)
-            return PreciseInputTranscriptionWorker("speaker", None, speaker_source["device_id"], self.ui_queue, precise_bundle)
+                return PreciseLoopbackTranscriptionWorker(
+                    "speaker",
+                    self.model,
+                    speaker_source,
+                    self.ui_queue,
+                    precise_bundle,
+                    config=REALTIME_SPEAKER_WHISPER_CONFIG,
+                )
+            return PreciseInputTranscriptionWorker(
+                "speaker",
+                None,
+                speaker_source["device_id"],
+                self.ui_queue,
+                precise_bundle,
+                config=REALTIME_SPEAKER_WHISPER_CONFIG,
+            )
 
         if speaker_source["kind"] == "loopback":
             return LoopbackTranscriptionWorker("speaker", self.model, speaker_source, self.ui_queue)
@@ -977,6 +1032,12 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
                         mic_device["id"],
                         self.ui_queue,
                         self.precise_engine_bundle,
+                        config=DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG,
+                    )
+                    runtime.LOGGER.info(
+                        "Using balanced Whisper profile for operator. beam=%s preview=%s",
+                        DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG.beam_size,
+                        DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG.preview_enabled,
                     )
                 else:
                     self.workers["me"] = runtime.TranscriptionWorker(
@@ -1006,7 +1067,10 @@ class OperatorAssistApp(_base_mod.OperatorAssistApp):
         self.status_var.set("Распознавание запущено")
         if speaker_enabled and speaker_mode_key == runtime.SPEAKER_MODE_PRECISE and self.precise_engine_bundle is not None:
             if mic_enabled:
-                route_hint = "Оба канала используют одну общую модель Whisper. "
+                route_hint = (
+                    "Оба канала используют одну модель Whisper: собеседник — точный профиль, "
+                    "микрофон — облегчённый профиль без лишних предварительных проходов. "
+                )
             else:
                 route_hint = "Vosk не загружался: он не нужен выбранному маршруту. "
             self.hint_var.set(

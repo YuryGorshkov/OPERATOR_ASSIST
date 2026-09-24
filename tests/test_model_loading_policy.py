@@ -135,6 +135,40 @@ class ModelLoadingPolicyTests(unittest.TestCase):
 
         self.assertFalse(app._requires_vosk_model())
 
+    def test_dual_channel_operator_uses_balanced_whisper_profile(self):
+        config = precise_runtime.DUAL_CHANNEL_OPERATOR_WHISPER_CONFIG
+
+        self.assertEqual(3, config.beam_size)
+        self.assertEqual(3, config.best_of)
+        self.assertFalse(config.preview_enabled)
+
+    def test_realtime_speaker_keeps_full_search_without_preview(self):
+        config = precise_runtime.REALTIME_SPEAKER_WHISPER_CONFIG
+
+        self.assertEqual(5, config.beam_size)
+        self.assertEqual(5, config.best_of)
+        self.assertFalse(config.preview_enabled)
+
+    def test_precise_loopback_worker_receives_realtime_speaker_profile(self):
+        app = precise_runtime.OperatorAssistApp.__new__(precise_runtime.OperatorAssistApp)
+        app.model = None
+        app.ui_queue = mock.Mock()
+        app._current_speaker_mode_key = lambda: base_runtime.SPEAKER_MODE_PRECISE
+        app._ensure_precise_speaker_bundle = lambda: object()
+        source = {
+            "kind": "loopback",
+            "name": "Speakers",
+            "channels": 2,
+            "default_samplerate": 48000,
+        }
+
+        worker = app._build_speaker_worker(source)
+
+        self.assertIs(
+            precise_runtime.REALTIME_SPEAKER_WHISPER_CONFIG,
+            worker.precise_config,
+        )
+
     def test_operator_only_route_still_requires_vosk(self):
         app = self._app_for_route(
             mic_enabled=True,

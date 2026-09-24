@@ -290,12 +290,35 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(12.0, candidate.config.flush_seconds)
         self.assertEqual(5, candidate.config.beam_size)
 
+    def test_operator_latency_profile_matches_dual_channel_runtime(self):
+        candidate, _observed = make_engine(
+            bundle(FakeModel("recognized")),
+            PROFILES["operator_latency_first"],
+            text_postprocessor=lambda text, **_: text,
+        )
+
+        self.assertEqual(1, candidate.config.beam_size)
+        self.assertEqual(1, candidate.config.best_of)
+        self.assertFalse(candidate.config.preview_enabled)
+
+    def test_operator_balanced_profile_uses_bounded_search_without_preview(self):
+        candidate, _observed = make_engine(
+            bundle(FakeModel("recognized")),
+            PROFILES["operator_balanced"],
+            text_postprocessor=lambda text, **_: text,
+        )
+
+        self.assertEqual(3, candidate.config.beam_size)
+        self.assertEqual(3, candidate.config.best_of)
+        self.assertFalse(candidate.config.preview_enabled)
+
     def test_pause_tuning_profiles_change_only_declared_runtime_setting(self):
         expected = {
             "pause_initial_6": ("initial_flush_seconds", 6.0),
             "pause_initial_8": ("initial_flush_seconds", 8.0),
             "pause_flush_16": ("flush_seconds", 16.0),
             "pause_overlap_1_5": ("overlap_seconds", 1.5),
+            "pause_flush_8": ("flush_seconds", 8.0),
             "pause_guard_0_9": ("boundary_guard_seconds", 0.9),
             "pause_ms_450": ("pause_ms", 450),
             "pause_preview_1_5": ("preview_after_seconds", 1.5),
