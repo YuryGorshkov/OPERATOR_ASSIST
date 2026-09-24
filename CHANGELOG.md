@@ -4,6 +4,23 @@ All notable repository-facing changes are documented here.
 
 ## Unreleased
 
+## v1.5.4 - 2026-09-24
+
+Precise-mode latency tuning release.
+
+Highlights:
+
+- show the first provisional Whisper text after 1.5 seconds of speech instead of 2.5 seconds
+- reduce pause thresholds from 600/1000 ms to 450/750 ms and use a 1.5-second minimum pause window
+- reduce the final decoder beam width from 8 to 5 after a controlled comparison improved both speed and accuracy
+- add first-preview latency to real-time ASR reports and preserve the former production profile as `pause_legacy`
+- reduce measured mean first-text latency from 3.61 to 2.62 seconds and p95 from 4.14 to 2.89 seconds
+- reduce measured mean final-event latency from 2.43 to 2.28 seconds and p95 from 3.44 to 2.95 seconds
+- reduce real-time WER from 17.53% to 13.96%, CER from 9.10% to 7.90% and maximum queue depth from 9 to 7 with zero dropped audio blocks
+- pass all 152 repository tests with temporary test data redirected away from the system drive
+
+These measurements use the same 11 verified podcast clips on the development machine and are not a general accuracy or latency guarantee.
+
 ## v1.5.3 - 2026-09-23
 
 Memory and channel-routing hotfix.

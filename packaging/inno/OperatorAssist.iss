@@ -2,7 +2,7 @@
   #define MyAppName "OPERATOR_ASSIST"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "1.5.3"
+  #define MyAppVersion "1.5.4"
 #endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "Yury Gorshkov"

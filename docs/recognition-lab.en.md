@@ -94,9 +94,11 @@ timed separately from profile comparisons.
 
 `baseline` preserves the historical fixed-window control: 250 ms replay blocks,
 a 6-second buffer, 0.7-second minimum gap segment, speaker preprocessing and prior
-text. `production_pause` uses the current desktop engine: original PCM, pause-aware
-segmentation, timestamp-owned overlap, beam width 8 and decoder-based non-speech
-rejection.
+text. `production_pause` uses the current desktop engine: original PCM, 450/750 ms
+pause-aware segmentation, a provisional result after 1.5 seconds of speech,
+timestamp-owned overlap, beam width 5 and decoder-based non-speech rejection.
+`pause_legacy` preserves the former 600/1000 ms thresholds, 2.5-second preview and
+beam width 8 for control comparisons.
 
 Pause profiles change one production-engine setting at a time:
 
@@ -106,8 +108,11 @@ Pause profiles change one production-engine setting at a time:
 - `pause_flush_16`: increase the long-utterance forced flush to 16 seconds.
 - `pause_overlap_1_5`: increase segment overlap to 1.5 seconds.
 - `pause_guard_0_9`: increase the boundary guard to 0.9 seconds.
-- `pause_ms_450`: reduce the primary pause threshold to 450 ms.
-- `pause_beam_5`: use beam width 5.
+- `pause_ms_450`: compatibility name for the current 450 ms primary pause threshold.
+- `pause_preview_1_5`: compatibility name for the current preview after 1.5 seconds.
+- `pause_short_750`: compatibility name for the current 450/750 ms pause pair.
+- `latency_balanced`: reproduce the profile promoted to the desktop engine.
+- `pause_beam_5`: compatibility name for the current beam width 5.
 - `pause_beam_10`: use beam width 10.
 
 Other profiles change one factor from the fixed-window control:

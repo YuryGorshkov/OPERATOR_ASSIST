@@ -28,18 +28,18 @@ class PauseAwareWhisperConfig:
     sample_rate: int = 16000
     flush_seconds: float = 12.0
     min_chunk_seconds: float = 4.0
-    pause_ms: int = 600
-    short_pause_ms: int = 1000
-    pause_min_window_seconds: float = 2.5
+    pause_ms: int = 450
+    short_pause_ms: int = 750
+    pause_min_window_seconds: float = 1.5
     overlap_seconds: float = 1.0
     boundary_guard_seconds: float = 0.6
     initial_flush_seconds: float = 4.0
     vad_silence_ms: int = 350
     no_speech_reject_threshold: float = DEFAULT_NO_SPEECH_REJECT_THRESHOLD
-    beam_size: int = 8
+    beam_size: int = 5
     best_of: int = 5
     preview_enabled: bool = True
-    preview_after_seconds: float = 2.5
+    preview_after_seconds: float = 1.5
     preview_beam_size: int = 1
     pause_decode_tail_seconds: float = 0.35
 

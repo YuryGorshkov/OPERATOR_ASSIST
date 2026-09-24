@@ -237,6 +237,11 @@ def replay_sample_realtime(
 
 def summarize_realtime_results(results):
     good = [result for result in results if "error" not in result]
+    preview_latencies = [
+        result["first_preview_seconds"]
+        for result in good
+        if result["first_preview_seconds"] is not None
+    ]
     final_latencies = [
         event["latency"]["speech_end_to_ui_seconds"]
         for result in good
@@ -267,6 +272,7 @@ def summarize_realtime_results(results):
         "cer": aggregate([result["scores"] for result in good], "cer"),
         "queue_drops": sum(result["queue_drops"] for result in good),
         "max_queue_depth": max((result["max_queue_depth"] for result in good), default=0),
+        "first_preview_latency": _latency_summary(preview_latencies),
         "final_event_latency": _latency_summary(final_latencies),
         "sample_completion_latency": _latency_summary(completion_latencies),
         "speakers": speakers,

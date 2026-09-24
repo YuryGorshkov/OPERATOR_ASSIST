@@ -109,9 +109,12 @@ class WordOwnershipTests(unittest.TestCase):
 class PauseAwareWhisperTests(unittest.TestCase):
     def test_default_pause_waits_for_stable_phrase_boundary(self):
         config = PauseAwareWhisperConfig()
-        self.assertEqual(600, config.pause_ms)
-        self.assertEqual(8, config.beam_size)
+        self.assertEqual(450, config.pause_ms)
+        self.assertEqual(750, config.short_pause_ms)
+        self.assertEqual(1.5, config.pause_min_window_seconds)
+        self.assertEqual(5, config.beam_size)
         self.assertEqual(5, config.best_of)
+        self.assertEqual(1.5, config.preview_after_seconds)
         self.assertEqual(0.35, config.pause_decode_tail_seconds)
 
     def test_silence_never_starts_decoder_and_memory_stays_bounded(self):
@@ -132,7 +135,7 @@ class PauseAwareWhisperTests(unittest.TestCase):
 
         self.assertEqual(["yes"], [update.text for update in updates])
         self.assertEqual(1, len(model.calls))
-        self.assertEqual(8, model.calls[0][1]["beam_size"])
+        self.assertEqual(5, model.calls[0][1]["beam_size"])
         self.assertEqual(5, model.calls[0][1]["best_of"])
         self.assertTrue(model.calls[0][1]["word_timestamps"])
         self.assertFalse(model.calls[0][1]["condition_on_previous_text"])
@@ -203,7 +206,7 @@ class PauseAwareWhisperTests(unittest.TestCase):
         )
         self.assertEqual(1, model.calls[0][1]["beam_size"])
         self.assertFalse(model.calls[0][1]["word_timestamps"])
-        self.assertEqual(8, model.calls[1][1]["beam_size"])
+        self.assertEqual(5, model.calls[1][1]["beam_size"])
         self.assertTrue(model.calls[1][1]["word_timestamps"])
 
     def test_known_metadata_hallucination_is_suppressed_in_preview_and_final(self):

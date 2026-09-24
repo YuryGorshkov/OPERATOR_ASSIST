@@ -18,12 +18,13 @@ class Profile:
     pause_initial_flush_seconds: float = 4.0
     pause_overlap_seconds: float = 1.0
     pause_boundary_guard_seconds: float = 0.6
-    pause_ms: int = 600
-    pause_short_pause_ms: int = 1000
-    pause_min_window_seconds: float = 2.5
-    pause_beam_size: int = 8
+    pause_ms: int = 450
+    pause_short_pause_ms: int = 750
+    pause_min_window_seconds: float = 1.5
+    pause_beam_size: int = 5
     pause_best_of: int = 5
     pause_preview_enabled: bool = True
+    pause_preview_after_seconds: float = 1.5
     pause_decode_tail_seconds: float = 0.35
 
 
@@ -31,6 +32,16 @@ PROFILES = {
     profile.name: profile for profile in (
         Profile("baseline"),
         Profile("production_pause", engine_kind="pause", preprocessing=False),
+        Profile(
+            "pause_legacy",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_ms=600,
+            pause_short_pause_ms=1000,
+            pause_min_window_seconds=2.5,
+            pause_beam_size=8,
+            pause_preview_after_seconds=2.5,
+        ),
         Profile(
             "pause_preview_off",
             engine_kind="pause",
@@ -72,6 +83,30 @@ PROFILES = {
             engine_kind="pause",
             preprocessing=False,
             pause_ms=450,
+        ),
+        Profile(
+            "pause_preview_1_5",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_preview_after_seconds=1.5,
+        ),
+        Profile(
+            "pause_short_750",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_ms=450,
+            pause_short_pause_ms=750,
+            pause_min_window_seconds=1.5,
+        ),
+        Profile(
+            "latency_balanced",
+            engine_kind="pause",
+            preprocessing=False,
+            pause_ms=450,
+            pause_short_pause_ms=750,
+            pause_min_window_seconds=1.5,
+            pause_beam_size=5,
+            pause_preview_after_seconds=1.5,
         ),
         Profile(
             "pause_beam_5",

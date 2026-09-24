@@ -273,7 +273,11 @@ class EngineTests(unittest.TestCase):
 
         self.assertIs(type(engine), PauseAwareWhisperEngine)
         self.assertFalse(PROFILES["production_pause"].preprocessing)
-        self.assertEqual(8, engine.config.beam_size)
+        self.assertEqual(450, engine.config.pause_ms)
+        self.assertEqual(750, engine.config.short_pause_ms)
+        self.assertEqual(1.5, engine.config.pause_min_window_seconds)
+        self.assertEqual(5, engine.config.beam_size)
+        self.assertEqual(1.5, engine.config.preview_after_seconds)
 
     def test_preview_control_profile_disables_only_preview_updates(self):
         candidate, _observed = make_engine(
@@ -284,7 +288,7 @@ class EngineTests(unittest.TestCase):
 
         self.assertFalse(candidate.config.preview_enabled)
         self.assertEqual(12.0, candidate.config.flush_seconds)
-        self.assertEqual(8, candidate.config.beam_size)
+        self.assertEqual(5, candidate.config.beam_size)
 
     def test_pause_tuning_profiles_change_only_declared_runtime_setting(self):
         expected = {
@@ -294,6 +298,7 @@ class EngineTests(unittest.TestCase):
             "pause_overlap_1_5": ("overlap_seconds", 1.5),
             "pause_guard_0_9": ("boundary_guard_seconds", 0.9),
             "pause_ms_450": ("pause_ms", 450),
+            "pause_preview_1_5": ("preview_after_seconds", 1.5),
             "pause_beam_5": ("beam_size", 5),
             "pause_beam_10": ("beam_size", 10),
         }
@@ -475,6 +480,7 @@ class BenchmarkTests(unittest.TestCase):
 
         self.assertEqual(0, summary["wer"]["errors"])
         self.assertEqual("actor01", summary["speakers"][0]["speaker_id"])
+        self.assertEqual(0, summary["first_preview_latency"]["count"])
         self.assertEqual(1, summary["final_event_latency"]["count"])
 
 
