@@ -39,7 +39,7 @@ class CrossChannelEchoConfig:
     coherence_hop_samples: int = 256
     min_coherence_frames: int = 6
     min_coherence: float = 0.32
-    attack_chunks: int = 2
+    attack_chunks: int = 1
 
 
 def _int16_samples_to_float32(chunk):

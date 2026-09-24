@@ -41,6 +41,7 @@ PRECISE_MODEL_REPOSITORIES = {
 DEFAULT_NO_SPEECH_REJECT_THRESHOLD = 0.8
 MIN_FINAL_ALNUM_CHARS = 2
 _KNOWN_SUBTITLE_CREDIT_MARKERS = ("dimatorzok", "диматоржок")
+_KNOWN_STANDALONE_HALLUCINATIONS = ("продолжениеследует",)
 PRECISE_DEVICE_GPU = "gpu"
 PRECISE_DEVICE_CPU = "cpu"
 _CUDA_DLL_DIRECTORY_HANDLES = []
@@ -278,11 +279,13 @@ def filter_no_speech_segments(segments, threshold):
 
 
 def filter_known_metadata_hallucinations(segments):
-    """Reject only reproduced Whisper subtitle-credit hallucinations."""
+    """Reject only reproduced Whisper metadata and outro hallucinations."""
     segments = list(segments)
 
-    def is_known_credit(text):
+    def is_known_hallucination(text):
         key = "".join(character for character in text.casefold() if character.isalnum())
+        if key in _KNOWN_STANDALONE_HALLUCINATIONS:
+            return True
         return key.startswith("субтитры") and any(
             marker in key for marker in _KNOWN_SUBTITLE_CREDIT_MARKERS
         )
@@ -291,7 +294,7 @@ def filter_known_metadata_hallucinations(segments):
     rejected = []
     for segment in segments:
         text = str(getattr(segment, "text", "") or "")
-        if is_known_credit(text):
+        if is_known_hallucination(text):
             rejected.append(segment)
         else:
             accepted.append(segment)
@@ -301,7 +304,7 @@ def filter_known_metadata_hallucinations(segments):
     combined_text = " ".join(
         str(getattr(segment, "text", "") or "") for segment in segments
     )
-    if is_known_credit(combined_text):
+    if is_known_hallucination(combined_text):
         return [], segments
     return accepted, rejected
 

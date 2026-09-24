@@ -331,6 +331,21 @@ class RecognitionEnginePlanTests(unittest.TestCase):
         self.assertEqual([], updates)
         self.assertEqual(1, engine.rejected_known_hallucinations)
 
+    def test_precise_buffer_suppresses_reproduced_outro_hallucination(self):
+        engine = self._make_precise_engine(
+            (
+                SimpleNamespace(
+                    text="Продолжение следует...",
+                    no_speech_prob=0.01,
+                ),
+            )
+        )
+
+        updates = engine.consume_chunk(np.ones(10, dtype=np.int16).tobytes())
+
+        self.assertEqual([], updates)
+        self.assertEqual(1, engine.rejected_known_hallucinations)
+
     def test_metadata_hallucination_filter_preserves_other_subtitle_phrases(self):
         segments = (
             SimpleNamespace(text="Субтитры создавал DimaTorzok"),
